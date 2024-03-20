@@ -1,11 +1,11 @@
 import logging
 
-DEFULTLEVEL = logging.WARNING
+DEFAULTLEVEL = logging.WARNING
 DEFAULTLOGFORMAT = ('%(asctime)s [%(process)d:%(threadName)10s@%(name)s %(levelname)s %(relativeCreated)14dms]: %('
                     'message)s')
 
 
-def prepareLogger(logger: logging.Logger, level=DEFULTLEVEL, logformat=DEFAULTLOGFORMAT, handler=None):
+def prepareLogger(logger: logging.Logger, level=DEFAULTLEVEL, logformat=DEFAULTLOGFORMAT, handler=None):
     logger.setLevel(level)
     formatter = logging.Formatter(logformat)
     ch = handler or logging.StreamHandler()

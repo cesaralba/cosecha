@@ -3,7 +3,6 @@ import re
 from collections import defaultdict
 from pathlib import Path
 from time import gmtime
-from magic import detect_from_content
 
 ####################################################################################################################
 
@@ -186,15 +185,3 @@ def cosaCorta(c1, c2):
 
 def cosaLarga(c1, c2):
     return (c2 if len(c2) > len(c1) else c1)
-
-
-def typeFromData(data:bytes):
-    mimeType = detect_from_content(data).mime_type
-
-    return mimeType
-
-def extensionFromType(dataType:str):
-    if dataType in {'image/png'}:
-        return 'png'
-
-    raise TypeError(f"Unknown type {dataType}")
