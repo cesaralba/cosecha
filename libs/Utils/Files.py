@@ -1,3 +1,4 @@
+import logging
 from hashlib import file_digest, sha256
 
 import yaml
@@ -37,5 +38,7 @@ def shaData(data):
 def extensionFromType(dataType: str):
     if dataType in {'image/png'}:
         return 'png'
-
+    elif dataType in {'image/jpeg'}:
+        return 'jpg'
+    logging.error(f"Unknown type {dataType}")
     raise TypeError(f"Unknown type {dataType}")
