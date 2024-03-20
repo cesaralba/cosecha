@@ -1,8 +1,9 @@
 import logging
 
 DEFAULTLEVEL = logging.WARNING
-DEFAULTLOGFORMAT = ('%(asctime)s [%(process)d:%(threadName)10s@%(name)s %(levelname)s %(relativeCreated)14dms]: %('
-                    'message)s')
+DEFAULTLOGFORMAT = (
+    '%(asctime)s [%(process)d:%(threadName)10s@%(name)s %(levelname)s %(relativeCreated)14dms]:%(pathname)s@%('
+    'lineno)d %(message)s')
 
 
 def prepareLogger(logger: logging.Logger, level=DEFAULTLEVEL, logformat=DEFAULTLOGFORMAT, handler=None):
