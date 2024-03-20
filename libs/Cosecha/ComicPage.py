@@ -50,6 +50,7 @@ class ComicPage(metaclass=ABCMeta):
         self.data = img.data
         self.info['mediaURL'] = self.mediaURL = img.source
         self.info['mediaHash'] = self.mediaHash = shaData(img.data)
+        self.info['mimeType'] = magic.detect_from_content(self.data).mime_type
 
     @abstractmethod
     def updateInfo(self):

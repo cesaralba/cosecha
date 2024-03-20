@@ -4,6 +4,8 @@ from importlib import import_module
 from io import UnsupportedOperation
 from os import makedirs
 
+import validators
+
 from libs.Utils.Config import globalConfig, runnerConfig
 from libs.Utils.Files import loadYAML, saveYAML
 from libs.Utils.Misc import createPath
@@ -14,7 +16,8 @@ class Crawler:
     def __init__(self, runnerCFG: runnerConfig, globalCFG: globalConfig):
         self.runnerCFG = runnerCFG
         self.globalCFG = globalCFG
-        self.state = CrawlerState(self.runnerCFG.name, self.globalCFG.stateD()).load()
+        self.name = self.runnerCFG.name
+        self.state = CrawlerState(self.name, self.globalCFG.stateD()).load()
         self.module = self.RunnerModule(self.runnerCFG.module)
         self.obj: ComicPage = self.module.Page(self.state.lastURL)
         self.results = list()
@@ -36,20 +39,54 @@ class Crawler:
             raise TypeError(f"Unknown mode '{self.runnerCFG.mode}'")
 
     def crawl(self):
-        logging.info(f"'{self.runnerCFG.name}' Crawling")
-        pass
+        logging.info(f"Runner: '{self.name}' Crawling")
+        remainingImgs = int(self.runnerCFG.batchSize)
+        while remainingImgs > 0:
+            try:
+                if self.state.lastURL is None:
+                    self.obj.downloadPage()
+                    initialLink = self.runnerCFG.initial.lower()
+                    if (initialLink == '*first'):
+                        print(self.obj.__dict__)
+                        self.obj = self.module.Page(self.obj.linkFirst)
+                    elif (initialLink == '*last'):
+                        # We are already on last edited picture
+                        pass
+                    elif validators.url(self.runnerCFG.initial):
+                        self.obj = self.module.Page(self.runnerCFG.initial)
+                    else:
+                        raise ValueError(
+                            f"Runner: '{self.name}' {self.runnerCFG.filename}:Unknown initial value:'"
+                            f"{self.runnerCFG.initial}'")
+                self.obj.downloadPage()
+                if not self.obj.exists(self.globalCFG.imagesD(), self.globalCFG.metadataD()):
+                    logging.debug(f"'{self.name}': downloading new image")
+                    self.obj.downloadMedia()
+                    self.obj.saveFiles(self.globalCFG.imagesD(), self.globalCFG.metadataD())
+                    self.results.append(self.obj)
+                    self.state.update(self)
+                    remainingImgs -= 1
+                else:
+                    logging.debug(f"'{self.name}' {self.obj.URL}: already downloaded")
+                self.obj = self.obj = self.module.Page(self.obj.linkNext)
+            except Exception as exc:
+                logging.error(f"Crawler(crawl)'{self.name}': problem:{type(exc)} {exc}")
+                break
 
     def poll(self):
-        logging.info(f"'{self.runnerCFG.name}' Polling")
-        self.obj.downloadPage()
-        if not self.obj.exists(self.globalCFG.imagesD(), self.globalCFG.metadataD()):
-            logging.debug(f"'{self.runnerCFG.name}': new image")
-            self.obj.downloadMedia()
-            self.obj.saveFiles(self.globalCFG.imagesD(), self.globalCFG.metadataD())
-            self.results.append(self.obj)
-            self.state.update(self)
-        else:
-            logging.debug(f"'{self.runnerCFG.name}': already downloaded")
+        logging.info(f"'{self.name}' Polling")
+        try:
+            self.obj.downloadPage()
+            if not self.obj.exists(self.globalCFG.imagesD(), self.globalCFG.metadataD()):
+                logging.debug(f"'{self.name}': downloading new image {self.obj.URL} -> {self.obj.mediaURL}")
+                self.obj.downloadMedia()
+                self.obj.saveFiles(self.globalCFG.imagesD(), self.globalCFG.metadataD())
+                self.results.append(self.obj)
+                self.state.update(self)
+            else:
+                logging.debug(f"'{self.name}': already downloaded")
+        except Exception as exc:
+            logging.error(f"Crawler(poll)'{self.name}': problem:{type(exc)} {exc}")
 
 
 class CrawlerState:
