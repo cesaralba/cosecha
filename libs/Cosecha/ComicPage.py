@@ -18,7 +18,7 @@ class ComicPage(metaclass=ABCMeta):
         self.URL = URL
         self.key = key
         self.timestamp = gmtime()
-        self.date = None  # Date from page (if nay)
+        self.comicDate = None  # Date from page (if nay)
         self.comicId = None  # Any identifier related to page (if any)
         self.mediaURL = None
         self.data = None  # Actual image
@@ -32,6 +32,15 @@ class ComicPage(metaclass=ABCMeta):
         self.linkPrev = None
         self.linkFirst = None
         self.linkLast = None
+
+    def __str__(self):
+        dataStr = f"[{len(self.data)}]" if self.data else "No data"
+        idStr = f"{self.comicId}"
+        result = f"Comic '{self.key}' {self.URL} [{idStr}] -> {self.mediaURL} {dataStr}"
+
+        return result
+
+    __repr__ = __str__
 
     @abstractmethod
     def downloadPage(self):

@@ -24,10 +24,7 @@ def parse_arguments():
     parser.add('-d', dest='debug', action="store_true", env_var='CS_DEBUG', required=False, help='', default=False)
 
     parser.add('-c', '--config', dest='config', action="store", env_var='CS_CONFIG', required=False,
-               help='Fichero de configuración', default="etc/cosecha.cfg")
-
-    parser.add('-j', dest='justone', action="store_true", env_var='CS_JUSTONE', required=False,
-               help='Just downloads one vignette', default=False)
+               help='Fichero de configuración')  # , default="etc/cosecha.cfg"
 
     parser.add('-o', dest='destdir', type=str, env_var='CS_DESTDIR', help='Root directory to store things',
                required=False)
@@ -107,6 +104,10 @@ def main(config: globalConfig):
         obj.go()
         obj.state.store()
 
+    for crawlerN, crawler in crawlers.items():
+        if crawler.results:
+            for res in crawler.results:
+                print(f"{crawlerN} -> {res}")
 
 if __name__ == '__main__':
     config = parse_arguments()
