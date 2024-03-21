@@ -47,7 +47,6 @@ class Crawler:
                     self.obj.downloadPage()
                     initialLink = self.runnerCFG.initial.lower()
                     if (initialLink == '*first'):
-                        print(self.obj.__dict__)
                         self.obj = self.module.Page(self.obj.linkFirst)
                     elif (initialLink == '*last'):
                         # We are already on last edited picture
@@ -55,9 +54,8 @@ class Crawler:
                     elif validators.url(self.runnerCFG.initial):
                         self.obj = self.module.Page(self.runnerCFG.initial)
                     else:
-                        raise ValueError(
-                            f"Runner: '{self.name}' {self.runnerCFG.filename}:Unknown initial value:'"
-                            f"{self.runnerCFG.initial}'")
+                        raise ValueError(f"Runner: '{self.name}' {self.runnerCFG.filename}:Unknown initial value:'"
+                                         f"{self.runnerCFG.initial}'")
                 self.obj.downloadPage()
                 if not self.obj.exists(self.globalCFG.imagesD(), self.globalCFG.metadataD()):
                     logging.debug(f"'{self.name}': downloading new image")
