@@ -1,4 +1,5 @@
 import logging
+from argparse import Namespace
 from configparser import ConfigParser
 from dataclasses import dataclass
 from glob import glob
@@ -6,7 +7,7 @@ from os import makedirs, path
 from typing import Optional
 
 import validators
-from configargparse import ArgumentParser
+from configargparse import ArgParser
 
 RUNNERFILEEXTENSION = "conf"
 
@@ -24,9 +25,60 @@ class globalConfig:
     batchSize: int = 7
 
     @classmethod
-    def createFromArgs(cls, args: ArgumentParser):
-        #TODO:
-        pass
+    def createFromArgs(cls, args: Namespace):
+        auxData = dict()
+
+        if 'config' in args:
+            auxData['filename'] = args.config
+
+            parser = ConfigParser()
+            parser.read(args.config)
+
+            auxData['data'] = parser
+
+            for field in cls.__dataclass_fields__:
+                if field in parser['GENERAL']:
+                    auxData[field] = parser.get('GENERAL', field).strip('"').strip("'")
+
+        for field in cls.__dataclass_fields__:
+
+            if field in args and args.__dict__[field]:
+                argValue = args.__dict__[field].strip('"').strip("'")
+                print(f"{field} <- {argValue}")
+                auxData[field] = argValue
+                if auxData.get('data', None) is not None:
+                    auxData['data'].set('GENERAL', field, argValue)
+
+        fileKeys = set(auxData.keys())
+        requiredClassFields = {k for k, v in cls.__dataclass_fields__.items() if
+                               not isinstance(v.default, (type(None), str, bool, int))}
+        missingKeys = requiredClassFields.difference(fileKeys)
+
+        if (missingKeys):
+            logging.error(f"{args.config}: missing required fields: {missingKeys}")
+            raise KeyError(f"{args.config}: missing required fields: {missingKeys}")
+
+        result = cls(**auxData)
+
+        return result
+
+    @classmethod
+    def addSpecificParams(cls, parser: ArgParser):
+        parser.add_argument('-c', '--config', dest='config', action="store", env_var='CS_CONFIG', required=False,
+                            help='Fichero de configuración',
+                            default="etc/cosecha.cfg")  # TODO: Quitar ese valor por defect
+
+        parser.add_argument('-o', dest='saveDirectory', type=str, env_var='CS_DESTDIR',
+                            help='Root directory to store things', required=False)
+        parser.add_argument('-i', dest='imagesDirectory', type=str, env_var='CS_DESTDIRIMG',
+                            help='Location to store images (supersedes ${CS_DESTDIR}/images', required=False)
+        parser.add_argument('-m', dest='metadataDirectory', type=str, env_var='CS_DESTDIRMETA',
+                            help='Location to store metadata files (supersedes ${CS_DESTDIR}/metadata', required=False)
+        parser.add_argument('-s', dest='stateDirectory', type=str, env_var='CS_DESTDIRSTATE',
+                            help='Location to store state files (supersedes ${CS_DESTDIR}/state', required=False)
+
+        parser.add_argument('-r', dest='runnersCFG', type=str, env_var='CS_RUNNERSCFG',
+                            help='Glob for configuration files of runners', required=False)
 
     def imagesD(self) -> str:
         return path.join(self.saveDirectory, self.imagesDirectory)
@@ -75,8 +127,8 @@ class runnerConfig:
 
         if self.mode not in RUNNERVALIDMODES:
             problems.append(
-                f"{self.__class__}:{self.filename} 'mode' has not a valid value '{self.mode}'. Valid modes are "
-                f"{RUNNERVALIDMODES}")
+                    f"{self.__class__}:{self.filename} 'mode' has not a valid value '{self.mode}'. Valid modes are "
+                    f"{RUNNERVALIDMODES}")
 
         if not ((self.initial in RUNNERVALIDINITIALS) or (self.initial is None) or validators.url(self.initial)):
             problems.append(f"{self.__class__}:{self.filename} 'initial' has not a valid value '{self.initial}'. "
@@ -128,23 +180,6 @@ def readConfig(filename: str):
 def runnerConfFName2Name(filename):
     fname = path.basename(filename)
     result = fname.rstrip(f".{RUNNERFILEEXTENSION}")
-
-    return result
-
-
-def readRunnerConfig(filename: str) -> runnerConfig:
-    auxResult = dict()
-    auxResult['filename'] = filename
-    auxResult['name'] = runnerConfFName2Name(filename)
-
-    parser = ConfigParser()
-    parser.read(filename)
-
-    for field in runnerConfig._fields:
-        if field in parser['RUNNER']:
-            auxResult[field] = parser.get('RUNNER', field).strip('"').strip("'")
-
-    result = runnerConfig(**auxResult)
 
     return result
 
