@@ -22,6 +22,7 @@ class globalConfig:
     defaultMode: str = 'poll'
     runnersCFG: str = 'etc/runners.d/*.conf'
     batchSize: int = 7
+    dryRun: bool = False
 
     @classmethod
     def createFromArgs(cls, args: Namespace):
@@ -78,6 +79,10 @@ class globalConfig:
 
         parser.add_argument('-r', dest='runnersCFG', type=str, env_var='CS_RUNNERSCFG',
                             help='Glob for configuration files of runners', required=False)
+
+        parser.add_argument('-n','--dry-run', dest='dryRun', type=str, env_var='CS_DRYRUN',
+                            help="Don't save or send emails", required=False)
+
 
     def imagesD(self) -> str:
         return path.join(self.saveDirectory, self.imagesDirectory)
