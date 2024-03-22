@@ -6,7 +6,8 @@ import logging
 from configargparse import ArgParser
 
 from libs.Cosecha.Crawler import Crawler
-from libs.Utils.Config import globalConfig, readRunnerConfigs
+from libs.Cosecha.Harvest import Harvest
+from libs.Cosecha.Config import globalConfig, readRunnerConfigs
 from libs.Utils.Logging import prepareLogger
 
 logger = logging.getLogger()
@@ -17,9 +18,11 @@ def parse_arguments():
 
     parser = ArgParser(description=descriptionTXT)
 
-    parser.add_argument('-v', dest='verbose', action="count", env_var='CS_VERBOSE', required=False, help='', default=0)
-    parser.add_argument('-d', dest='debug', action="store_true", env_var='CS_DEBUG', required=False, help='',
+    parser.add_argument('-v', dest='verbose', action="count", env_var='CS_VERBOSE', required=False, help='Verbose mode (warning)', default=0)
+    parser.add_argument('-d', dest='debug', action="store_true", env_var='CS_DEBUG', required=False, help='Debug mode (debug)',
                         default=False)
+
+    parser.add_argument('--ignore-enabled', dest='ignoreEnabled', action="store_true", env_var='CS_DEBUG', required=False, help='Ignores if the runner is disabled', default=False)
 
     globalConfig.addSpecificParams(parser)
 
@@ -39,22 +42,15 @@ def parse_arguments():
 
 
 def main(config: globalConfig):
-    runnerCFGs = readRunnerConfigs(config.runnersCFG, '.')
+    #TODO: sacar el home directory
+    cosecha = Harvest(config=config,homeDirectory='.')
 
-    crawlers = {runner.name: Crawler(runnerCFG=runner, globalCFG=config) for runner in runnerCFGs}
+    cosecha.go()
 
-    for crawler, obj in crawlers.items():
-        if not obj.runnerCFG.enabled:
-            continue
-        obj.go()
-        obj.state.store()
+    cosecha.print()
 
-    for crawlerN, crawler in crawlers.items():
-        print(f"{crawlerN} -> {crawler.runnerCFG}")
-        if crawler.results:
-            for res in crawler.results:
-                print(f"{crawlerN} -> {res}")
-
+    print(config.data['MAIL'])
+    print(type(config.data))
 
 if __name__ == '__main__':
     config = parse_arguments()

@@ -121,6 +121,9 @@ class ComicPage(metaclass=ABCMeta):
             ext = extensionFromType(mimeType).lower()
         return ext
 
+    def mailBody(self):
+        pass
+
     # TODO: updateDB  # TODO: mailContent
 
 
