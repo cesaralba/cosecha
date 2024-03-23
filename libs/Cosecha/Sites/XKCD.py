@@ -17,6 +17,13 @@ class Page(ComicPage):
         auxURL = URL or URLBASE
         super().__init__(key=KEY, URL=auxURL)
 
+
+    def __str__(self):
+        dataStr = f"[{self.size()}b]" if self.data else "No data"
+        idStr = f"{self.comicId}"
+        result = f"Comic '{self.key}' [{idStr}] {self.URL} -> {self.info['title']} {dataStr}"
+
+        return result
     def downloadPage(self):
         self.info = dict()
 

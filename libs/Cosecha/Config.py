@@ -1,10 +1,10 @@
 import logging
 from argparse import Namespace
 from configparser import ConfigParser
-from dataclasses import dataclass
+from dataclasses import dataclass,Field
 from glob import glob
 from os import makedirs, path
-from typing import Optional
+from typing import Optional,List
 import validators
 from configargparse import ArgParser
 
@@ -23,9 +23,13 @@ class globalConfig:
     runnersCFG: str = 'etc/runners.d/*.conf'
     batchSize: int = 7
     dryRun: bool = False
+    mailMaxSize: int = 1000000
+    dontSendEmails:bool=False
+    dontSave:bool=False
 
     @classmethod
     def createFromArgs(cls, args: Namespace):
+
         auxData = dict()
 
         if 'config' in args:
@@ -38,16 +42,20 @@ class globalConfig:
 
             for field in cls.__dataclass_fields__:
                 if field in parser['GENERAL']:
-                    auxData[field] = parser.get('GENERAL', field).strip('"').strip("'")
+                    value2add = parser.get('GENERAL', field).strip('"').strip("'")
+                    targetField = cls.__dataclass_fields__[field]
+
+                    auxData[field] = convertToDataClassField(value2add,targetField)
 
         for field in cls.__dataclass_fields__:
-
             if field in args and args.__dict__[field]:
+
                 argValue = args.__dict__[field].strip('"').strip("'")
-                print(f"{field} <- {argValue}")
-                auxData[field] = argValue
+                targetField = cls.__dataclass_fields__[field]
+
+                auxData[field] = convertToDataClassField(argValue,targetField)
                 if auxData.get('data', None) is not None:
-                    auxData['data'].set('GENERAL', field, argValue)
+                    auxData['data'].set('GENERAL', field, auxData[field])
 
         fileKeys = set(auxData.keys())
         requiredClassFields = {k for k, v in cls.__dataclass_fields__.items() if
@@ -80,8 +88,12 @@ class globalConfig:
         parser.add_argument('-r', dest='runnersCFG', type=str, env_var='CS_RUNNERSCFG',
                             help='Glob for configuration files of runners', required=False)
 
-        parser.add_argument('-n','--dry-run', dest='dryRun', type=str, env_var='CS_DRYRUN',
+        parser.add_argument('-n','--dry-run', dest='dryRun',  action="store_true", env_var='CS_DRYRUN',
                             help="Don't save or send emails", required=False)
+        parser.add_argument('--no-emails', dest='dontSendEmails',  action="store_true", env_var='CS_DRYRUN',
+                            help="Don't send emails", required=False)
+        parser.add_argument('--no-save', dest='dontSave',  action="store_true", env_var='CS_DRYRUN',
+                            help="Don't save images", required=False)
 
 
     def imagesD(self) -> str:
@@ -159,7 +171,10 @@ class runnerConfig:
 
         for field in cls.__dataclass_fields__:
             if field in parser['RUNNER']:
-                auxData[field] = parser.get('RUNNER', field).strip('"').strip("'")
+                value2add = parser.get('RUNNER', field).strip('"').strip("'")
+                targetField = cls.__dataclass_fields__[field]
+
+                auxData[field] = convertToDataClassField(value2add,targetField)
 
         fileKeys = set(auxData.keys())
         requiredClassFields = {k for k, v in cls.__dataclass_fields__.items() if
@@ -188,7 +203,7 @@ def runnerConfFName2Name(filename):
     return result
 
 
-def readRunnerConfigs(confGlob: str, baseDir: Optional[str] = None) -> list[runnerConfig]:
+def readRunnerConfigs(confGlob: str, baseDir: Optional[str] = None) -> List[runnerConfig]:
     result = []
     confList = glob(confGlob, root_dir=baseDir)
     for f in confList:
@@ -199,3 +214,12 @@ def readRunnerConfigs(confGlob: str, baseDir: Optional[str] = None) -> list[runn
             logging.error(f"Problems reading '{f}'. Ignoring.", exc_info=exc)
 
     return result
+
+def convertToDataClassField(value,field:Field):
+    if not isinstance(field.default, (str, bool, int)):
+        return value # Either is _MISSINGFIELD (or None) or a type we don't know about- There is nothing we can do
+
+    if not isinstance(value, field.type):
+        return field.type(value)
+
+    return value

@@ -40,7 +40,7 @@ class Crawler:
 
     def crawl(self):
         logging.info(f"Runner: '{self.name}' Crawling")
-        remainingImgs = int(self.runnerCFG.batchSize)
+        remainingImgs = self.runnerCFG.batchSize
         while remainingImgs > 0:
             try:
                 if self.state.lastURL is None:
@@ -62,6 +62,7 @@ class Crawler:
                     self.obj.downloadMedia()
                     self.results.append(self.obj)
                     remainingImgs -= 1
+                    self.state.update(self.obj)
                 else:
                     logging.debug(f"'{self.name}' {self.obj.URL}: already downloaded")
                 self.obj = self.module.Page(self.obj.linkNext)

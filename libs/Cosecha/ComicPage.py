@@ -34,13 +34,18 @@ class ComicPage(metaclass=ABCMeta):
         self.linkLast = None
 
     def __str__(self):
-        dataStr = f"[{len(self.data)}]" if self.data else "No data"
+        dataStr = f"[{self.size()}b]" if self.data else "No data"
         idStr = f"{self.comicId}"
-        result = f"Comic '{self.key}' {self.URL} [{idStr}] -> {self.mediaURL} {dataStr}"
+        result = f"Comic '{self.key}' [{idStr}] {self.URL} -> {self.mediaURL} {dataStr}"
 
         return result
 
     __repr__ = __str__
+
+    def size(self):
+        if self.data is None:
+            return None
+        return len(self.data)
 
     @abstractmethod
     def downloadPage(self):
