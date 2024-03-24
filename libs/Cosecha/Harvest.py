@@ -116,10 +116,11 @@ class MailDelivery:
             if not crawler.results:
                 continue
 
+            if self.currMessage is None:
+                self.addMessage()
+            crawlerMessages.append(self.currMessage)
+
             for image in crawler.results:
-                if self.currMessage is None:
-                    self.addMessage()
-                    crawlerMessages.append(self.currMessage)
 
                 if (self.currMessage.size + image.size()) <= self.mailMaxSize:
                     self.currMessage.addImage(crawler, image)

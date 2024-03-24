@@ -111,7 +111,7 @@ class MailMessage:
             attachments.extend(listAttachments)
 
         finalPlain = "\n".join(resultPlain)
-        finalHTML = markdown.markdown("CAP\n" + finalPlain)
+        finalHTML = markdown.markdown(finalPlain)
 
         fullSubject = f"{subject} {self.mid}/{self.mcnt}"
 

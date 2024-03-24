@@ -17,13 +17,13 @@ class Page(ComicPage):
         auxURL = URL or URLBASE
         super().__init__(key=KEY, URL=auxURL)
 
-
     def __str__(self):
         dataStr = f"[{self.size()}b]" if self.data else "No data"
         idStr = f"{self.comicId}"
         result = f"Comic '{self.key}' [{idStr}] {self.URL} -> {self.info['title']} {dataStr}"
 
         return result
+
     def downloadPage(self):
         self.info = dict()
 
@@ -33,7 +33,7 @@ class Page(ComicPage):
         self.info['url'] = metas['url']
         self.comicId = self.info['id'] = extractId(metas['url'])
 
-        links = findComicLinks(pagBase.data, here=self.URL)
+        links = findComicLinks(pagBase.data, here=self.URL, thisPage=self.info.get('url', None))
         self.linkNext = links.get('next')
         self.linkPrev = links.get('prev')
         self.linkFirst = links.get('first')
@@ -80,7 +80,7 @@ class Page(ComicPage):
         return createPath(*pathList)
 
     def mailBodyFragment(self, indent=1):
-        title=self.info['title']
+        title = self.info['title']
         text = f"""{(indent) * "#"} {self.key} #{self.comicId} [{title}]({self.URL})
 ![{self.mediaURL}](cid:{self.mediaAttId})
 
@@ -88,6 +88,7 @@ class Page(ComicPage):
 """
 
         return text
+
 
 def findInterestingMetas(webContent: bs4.BeautifulSoup):
     labs2extract = {'title', 'url'}
@@ -104,7 +105,7 @@ def findInterestingMetas(webContent: bs4.BeautifulSoup):
     return result
 
 
-def findComicLinks(webContent: bs4.BeautifulSoup, here: Optional[str] = None):
+def findComicLinks(webContent: bs4.BeautifulSoup, here: Optional[str] = None, thisPage: Optional[str] = None):
     result = dict()
 
     barNav = webContent.find('ul', {"class": "comicNav"})
@@ -125,8 +126,13 @@ def findComicLinks(webContent: bs4.BeautifulSoup, here: Optional[str] = None):
         else:
             raise ValueError(f"{item} '{text}' It shouldn't have reached here")
 
-        if dest in {'/', '#'}:
-            continue  # / is the last page, # is self
+        if dest in {'#'}:
+            if thisPage:
+                dest = thisPage
+            else:
+                continue  # / is the last page, # is self
+        elif dest in {'/'}:
+            continue
 
         destURL = MergeURL(here, dest)
 
