@@ -1,5 +1,7 @@
 import logging
 from abc import ABCMeta, abstractmethod
+from email.mime.image import MIMEImage
+from email.utils import make_msgid
 from os import makedirs, path
 from time import gmtime, strftime
 from urllib.parse import urlsplit
@@ -23,6 +25,8 @@ class ComicPage(metaclass=ABCMeta):
         self.mediaURL = None
         self.data = None  # Actual image
         self.mediaHash = None
+        self.mediaAttId = None
+        self.mimeType = None
         self.info = {'key': key}  # Dict containing metadata related to page (alt text, title...)
         self.saveFilePath = None
         self.saveMetadataPath = None
@@ -34,13 +38,18 @@ class ComicPage(metaclass=ABCMeta):
         self.linkLast = None
 
     def __str__(self):
-        dataStr = f"[{len(self.data)}]" if self.data else "No data"
+        dataStr = f"[{self.size()}b]" if self.data else "No data"
         idStr = f"{self.comicId}"
-        result = f"Comic '{self.key}' {self.URL} [{idStr}] -> {self.mediaURL} {dataStr}"
+        result = f"Comic '{self.key}' [{idStr}] {self.URL} -> {self.mediaURL} {dataStr}"
 
         return result
 
     __repr__ = __str__
+
+    def size(self):
+        if self.data is None:
+            return None
+        return len(self.data)
 
     @abstractmethod
     def downloadPage(self):
@@ -59,7 +68,8 @@ class ComicPage(metaclass=ABCMeta):
         self.data = img.data
         self.info['mediaURL'] = self.mediaURL = img.source
         self.info['mediaHash'] = self.mediaHash = shaData(img.data)
-        self.info['mimeType'] = magic.detect_from_content(self.data).mime_type
+        self.mediaAttId = make_msgid(domain=self.key)[1:-1]
+        self.info['mimeType'] = self.mimeType = magic.detect_from_content(self.data).mime_type
 
     @abstractmethod
     def updateInfo(self):
@@ -117,9 +127,26 @@ class ComicPage(metaclass=ABCMeta):
             urlpath = urlsplit(self.mediaURL).path
             ext = path.splitext(urlpath)[1].lstrip('.').lower()
         else:
-            mimeType = magic.detect_from_content(self.data).mime_type
-            ext = extensionFromType(mimeType).lower()
+            ext = extensionFromType(self.mimeType).lower()
         return ext
+
+    def mailBodyFragment(self, indent=1):
+        text = f"""{(indent) * "#"} [{self.key} {self.comicId}]({self.URL})
+![{self.mediaURL}](cid:{self.mediaAttId})"""
+
+        return text
+
+    def prepareAttachment(self):
+        if self.data is None:
+            raise ValueError("Trying to attach non existent data")
+
+        filename = self.dataFilename()
+        part = MIMEImage(self.data, name=filename)
+        part.add_header("Content-Disposition", f"attachment; filename=\"{filename}\"")
+        part.add_header("X-Attachment-Id", self.mediaAttId)
+        part.add_header("Content-ID", f"<{self.mediaAttId}>")
+
+        return part
 
     # TODO: updateDB  # TODO: mailContent
 

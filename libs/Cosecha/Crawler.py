@@ -6,10 +6,10 @@ from os import makedirs
 
 import validators
 
-from libs.Utils.Config import globalConfig, runnerConfig
 from libs.Utils.Files import loadYAML, saveYAML
 from libs.Utils.Misc import createPath
 from .ComicPage import ComicPage
+from .Config import globalConfig, runnerConfig
 
 
 class Crawler:
@@ -30,6 +30,11 @@ class Crawler:
 
         return sys.modules[fullModName]
 
+    def title(self):
+        if self.runnerCFG.title is not None:
+            return self.runnerCFG.title
+        return self.name
+
     def go(self):
         if self.runnerCFG.mode == "crawler":
             self.crawl()
@@ -40,7 +45,7 @@ class Crawler:
 
     def crawl(self):
         logging.info(f"Runner: '{self.name}' Crawling")
-        remainingImgs = int(self.runnerCFG.batchSize)
+        remainingImgs = self.runnerCFG.batchSize
         while remainingImgs > 0:
             try:
                 if self.state.lastURL is None:
@@ -60,13 +65,12 @@ class Crawler:
                 if not self.obj.exists(self.globalCFG.imagesD(), self.globalCFG.metadataD()):
                     logging.debug(f"'{self.name}': downloading new image")
                     self.obj.downloadMedia()
-                    self.obj.saveFiles(self.globalCFG.imagesD(), self.globalCFG.metadataD())
                     self.results.append(self.obj)
-                    self.state.update(self)
                     remainingImgs -= 1
+                    self.state.update(self.obj)
                 else:
                     logging.debug(f"'{self.name}' {self.obj.URL}: already downloaded")
-                self.obj = self.obj = self.module.Page(self.obj.linkNext)
+                self.obj = self.module.Page(self.obj.linkNext)
             except Exception as exc:
                 logging.error(f"Crawler(crawl)'{self.name}': problem:{type(exc)} {exc}")
                 break
@@ -78,9 +82,7 @@ class Crawler:
             if not self.obj.exists(self.globalCFG.imagesD(), self.globalCFG.metadataD()):
                 logging.debug(f"'{self.name}': downloading new image {self.obj.URL} -> {self.obj.mediaURL}")
                 self.obj.downloadMedia()
-                self.obj.saveFiles(self.globalCFG.imagesD(), self.globalCFG.metadataD())
                 self.results.append(self.obj)
-                self.state.update(self)
             else:
                 logging.debug(f"'{self.name}': already downloaded")
         except Exception as exc:
@@ -108,11 +110,11 @@ class CrawlerState:
 
         return result
 
-    def update(self, crawler: Crawler):
-        self.lastId = crawler.obj.comicId
-        self.lastUpdated = crawler.obj.info['timestamp']
-        self.lastURL = crawler.obj.URL
-        self.lastMedia = crawler.obj.mediaURL
+    def update(self, state: ComicPage):
+        self.lastId = state.comicId
+        self.lastUpdated = state.info['timestamp']
+        self.lastURL = state.URL
+        self.lastMedia = state.mediaURL
 
     def load(self):
         try:
