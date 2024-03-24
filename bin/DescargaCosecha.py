@@ -5,9 +5,8 @@ import logging
 
 from configargparse import ArgParser
 
-from libs.Cosecha.Crawler import Crawler
+from libs.Cosecha.Config import globalConfig
 from libs.Cosecha.Harvest import Harvest
-from libs.Cosecha.Config import globalConfig, readRunnerConfigs
 from libs.Utils.Logging import prepareLogger
 
 logger = logging.getLogger()
@@ -18,11 +17,13 @@ def parse_arguments():
 
     parser = ArgParser(description=descriptionTXT)
 
-    parser.add_argument('-v', dest='verbose', action="count", env_var='CS_VERBOSE', required=False, help='Verbose mode (warning)', default=0)
-    parser.add_argument('-d', dest='debug', action="store_true", env_var='CS_DEBUG', required=False, help='Debug mode (debug)',
-                        default=False)
+    parser.add_argument('-v', dest='verbose', action="count", env_var='CS_VERBOSE', required=False,
+                        help='Verbose mode (info)', default=0)
+    parser.add_argument('-d', dest='debug', action="store_true", env_var='CS_DEBUG', required=False,
+                        help='Debug mode (debug)', default=False)
 
-    parser.add_argument('--ignore-enabled', dest='ignoreEnabled', action="store_true", env_var='CS_DEBUG', required=False, help='Ignores if the runner is disabled', default=False)
+    parser.add_argument('--ignore-enabled', dest='ignoreEnabled', action="store_true", env_var='CS_DEBUG',
+                        required=False, help='Ignores if the runner is disabled', default=False)
 
     globalConfig.addSpecificParams(parser)
 
@@ -42,15 +43,13 @@ def parse_arguments():
 
 
 def main(config: globalConfig):
-    #TODO: sacar el home directory
-    cosecha = Harvest(config=config,homeDirectory='.')
+    # TODO: sacar el home directory
+    cosecha = Harvest(config=config, homeDirectory='.')
 
     cosecha.go()
 
     cosecha.print()
 
-    print(config.data['MAIL'])
-    print(type(config.data))
 
 if __name__ == '__main__':
     config = parse_arguments()

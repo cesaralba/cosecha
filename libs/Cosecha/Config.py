@@ -1,14 +1,50 @@
 import logging
 from argparse import Namespace
 from configparser import ConfigParser
-from dataclasses import dataclass,Field
+from dataclasses import dataclass, Field, field
 from glob import glob
 from os import makedirs, path
-from typing import Optional,List
+from typing import List, Optional
+
 import validators
 from configargparse import ArgParser
 
 RUNNERFILEEXTENSION = "conf"
+
+RUNNERVALIDMODES = {'poll', 'crawler'}
+RUNNERVALIDINITIALS = {'*first', '*last'}
+RUNNERBATCHMODES = {'crawler'}
+
+
+@dataclass
+class mailConfig:
+    subject: str = "Cosecha. Files downloaded on {timestamp}"
+    SMTPHOST: str = "localhost"
+    SMTPPORT: int = 25
+    mailMaxSize: int = 1000000
+    sender: str = "root@localhost"
+    to: List[str] = field(default_factory=list)
+
+    @classmethod
+    def createFromParse(cls, parser: ConfigParser, filename: str):
+        auxData = dict()
+
+        auxData.update(mergeConfFileIntoDataClass(cls, parser, 'MAIL'))
+
+        auxData['to'] = [d for d in auxData['to'].split('\n') if validators.email(d)]
+
+        fileKeys = set(auxData.keys())
+        requiredClassFields = {k for k, v in cls.__dataclass_fields__.items() if
+                               not isinstance(v.default, (type(None), str, bool, int))}
+        missingKeys = requiredClassFields.difference(fileKeys)
+
+        if (missingKeys):
+            logging.error(f"{filename}: missing required fields: {missingKeys}")
+            raise KeyError(f"{filename}: missing required fields: {missingKeys}")
+
+        result = cls(**auxData)
+
+        return result
 
 
 @dataclass
@@ -23,9 +59,9 @@ class globalConfig:
     runnersCFG: str = 'etc/runners.d/*.conf'
     batchSize: int = 7
     dryRun: bool = False
-    mailMaxSize: int = 1000000
-    dontSendEmails:bool=False
-    dontSave:bool=False
+    dontSendEmails: bool = False
+    dontSave: bool = False
+    mailCFG: mailConfig = None
 
     @classmethod
     def createFromArgs(cls, args: Namespace):
@@ -35,17 +71,11 @@ class globalConfig:
         if 'config' in args:
             auxData['filename'] = args.config
 
-            parser = ConfigParser()
-            parser.read(args.config)
+            auxData['data'] = parser = readConfigFile(args.config)
 
-            auxData['data'] = parser
+            auxData.update(mergeConfFileIntoDataClass(cls, parser, "GENERAL"))
 
-            for field in cls.__dataclass_fields__:
-                if field in parser['GENERAL']:
-                    value2add = parser.get('GENERAL', field).strip('"').strip("'")
-                    targetField = cls.__dataclass_fields__[field]
-
-                    auxData[field] = convertToDataClassField(value2add,targetField)
+            auxData['mailCFG'] = mailConfig.createFromParse(parser, args.config)
 
         for field in cls.__dataclass_fields__:
             if field in args and args.__dict__[field]:
@@ -53,7 +83,7 @@ class globalConfig:
                 argValue = args.__dict__[field].strip('"').strip("'")
                 targetField = cls.__dataclass_fields__[field]
 
-                auxData[field] = convertToDataClassField(argValue,targetField)
+                auxData[field] = convertToDataClassField(argValue, targetField)
                 if auxData.get('data', None) is not None:
                     auxData['data'].set('GENERAL', field, auxData[field])
 
@@ -88,13 +118,12 @@ class globalConfig:
         parser.add_argument('-r', dest='runnersCFG', type=str, env_var='CS_RUNNERSCFG',
                             help='Glob for configuration files of runners', required=False)
 
-        parser.add_argument('-n','--dry-run', dest='dryRun',  action="store_true", env_var='CS_DRYRUN',
+        parser.add_argument('-n', '--dry-run', dest='dryRun', action="store_true", env_var='CS_DRYRUN',
                             help="Don't save or send emails", required=False)
-        parser.add_argument('--no-emails', dest='dontSendEmails',  action="store_true", env_var='CS_DRYRUN',
+        parser.add_argument('--no-emails', dest='dontSendEmails', action="store_true", env_var='CS_DRYRUN',
                             help="Don't send emails", required=False)
-        parser.add_argument('--no-save', dest='dontSave',  action="store_true", env_var='CS_DRYRUN',
+        parser.add_argument('--no-save', dest='dontSave', action="store_true", env_var='CS_DRYRUN',
                             help="Don't save images", required=False)
-
 
     def imagesD(self) -> str:
         return path.join(self.saveDirectory, self.imagesDirectory)
@@ -108,11 +137,6 @@ class globalConfig:
     @classmethod
     def createStorePath(cls, field: str):
         makedirs(field, mode=0o755, exist_ok=True)
-
-
-RUNNERVALIDMODES = {'poll', 'crawler'}
-RUNNERVALIDINITIALS = {'*first', '*last'}
-RUNNERBATCHMODES = {'crawler'}
 
 
 @dataclass
@@ -164,17 +188,9 @@ class runnerConfig:
         auxData['filename'] = filename
         auxData['name'] = runnerConfFName2Name(filename)
 
-        parser = ConfigParser()
-        parser.read(filename)
+        auxData['data'] = parser = readConfigFile(filename)
 
-        auxData['data'] = parser
-
-        for field in cls.__dataclass_fields__:
-            if field in parser['RUNNER']:
-                value2add = parser.get('RUNNER', field).strip('"').strip("'")
-                targetField = cls.__dataclass_fields__[field]
-
-                auxData[field] = convertToDataClassField(value2add,targetField)
+        auxData.update(mergeConfFileIntoDataClass(cls, parser, 'RUNNER'))
 
         fileKeys = set(auxData.keys())
         requiredClassFields = {k for k, v in cls.__dataclass_fields__.items() if
@@ -190,10 +206,22 @@ class runnerConfig:
         return result
 
 
-def readConfig(filename: str):
+def readConfigFile(filename: str) -> ConfigParser:
     parser = ConfigParser()
-
     parser.read(filename)
+
+    return parser
+
+
+def mergeConfFileIntoDataClass(cls, parser: ConfigParser, sectionN: str) -> dict:
+    result = dict()
+    for field in cls.__dataclass_fields__:
+        if field in parser[sectionN]:
+            value2add = parser.get(sectionN, field).strip('"').strip("'")
+            targetField = cls.__dataclass_fields__[field]
+
+            result[field] = convertToDataClassField(value2add, targetField)
+    return result
 
 
 def runnerConfFName2Name(filename):
@@ -215,9 +243,10 @@ def readRunnerConfigs(confGlob: str, baseDir: Optional[str] = None) -> List[runn
 
     return result
 
-def convertToDataClassField(value,field:Field):
+
+def convertToDataClassField(value, field: Field):
     if not isinstance(field.default, (str, bool, int)):
-        return value # Either is _MISSINGFIELD (or None) or a type we don't know about- There is nothing we can do
+        return value  # Either is _MISSINGFIELD (or None) or a type we don't know about- There is nothing we can do
 
     if not isinstance(value, field.type):
         return field.type(value)

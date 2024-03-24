@@ -6,10 +6,10 @@ from os import makedirs
 
 import validators
 
-from .Config import globalConfig, runnerConfig
 from libs.Utils.Files import loadYAML, saveYAML
 from libs.Utils.Misc import createPath
 from .ComicPage import ComicPage
+from .Config import globalConfig, runnerConfig
 
 
 class Crawler:
@@ -29,6 +29,11 @@ class Crawler:
             import_module(fullModName, classLocation)
 
         return sys.modules[fullModName]
+
+    def title(self):
+        if self.runnerCFG.title is not None:
+            return self.runnerCFG.title
+        return self.name
 
     def go(self):
         if self.runnerCFG.mode == "crawler":

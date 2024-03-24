@@ -1,5 +1,8 @@
 import logging
+import smtplib
 import sys
+from email.mime.multipart import MIMEMultipart
+from time import gmtime, strftime
 from typing import List, Optional
 
 from .Config import globalConfig, readRunnerConfigs, runnerConfig
@@ -90,15 +93,21 @@ class Harvest:
     def email(self):
         mailDelivery = MailDelivery(self)
 
+        mailDelivery.print()
+
+        mailDelivery.prepareCargo()
+        mailDelivery.sendCargo()
+
 
 class MailDelivery:
     def __init__(self, harvest: Harvest):
-        self.mailMaxSize = harvest.globalCFG.mailMaxSize
+        self.mailConfig = harvest.globalCFG.mailCFG
+        self.mailMaxSize = harvest.globalCFG.mailCFG.mailMaxSize
         self.messages: List[MailMessage] = []
         self.currMessage: Optional[MailMessage] = None
-
+        self.timestamp = strftime("%Y/%m/%d-%H:%M %z", gmtime())
+        self.cargo: List[MIMEMultipart] = []
         self.prepareDelivery(harvest)
-        self.print()
 
     def prepareDelivery(self, harvest: Harvest):
 
@@ -143,11 +152,26 @@ class MailDelivery:
 
         lines.append(f" Mails to deliver: {len(self.messages)}")
         for i, msg in enumerate(self.messages, start=1):
-            lines.append(f"[{i}] {msg}")
-            for j, bundleN in enumerate(sorted(msg.bundles), start=1):
-                bundle = msg.bundles[bundleN]
-                lines.append(f"  [{j}] {bundle}")
-                for k, image in enumerate(bundle.images, start=1):
-                    lines.append(f"       [{k}] {image}")
+            lines.append(msg.print(i, 0))
 
         print("\n".join(lines))
+
+    def prepareCargo(self):
+        subject = f"{self.mailConfig.subject} {self.timestamp}"
+        self.cargo = [msg.compose(config=self.mailConfig, subject=subject) for msg in self.messages]
+
+    def sendCargo(self):
+        if not self.cargo:
+            return
+
+        try:
+            server = smtplib.SMTP(self.mailConfig.SMTPHOST, self.mailConfig.SMTPPORT)
+            server.ehlo()  # Can be omitted
+
+            for msg in self.cargo:
+                server.sendmail(self.mailConfig.sender, self.mailConfig.to, msg.as_string())
+        except Exception as e:
+            # Print any error messages to stdout
+            logging.error(e)
+        finally:
+            server.quit()
