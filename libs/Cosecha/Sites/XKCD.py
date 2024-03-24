@@ -79,6 +79,15 @@ class Page(ComicPage):
         pathList = [self.key]
         return createPath(*pathList)
 
+    def mailBodyFragment(self, indent=1):
+        title=self.info['title']
+        text = f"""{(indent) * "#"} {self.key} #{self.comicId} [{title}]({self.URL})
+![{self.mediaURL}](cid:{self.mediaAttId})
+
+"{self.info['comment']}"
+"""
+
+        return text
 
 def findInterestingMetas(webContent: bs4.BeautifulSoup):
     labs2extract = {'title', 'url'}

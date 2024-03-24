@@ -123,7 +123,7 @@ class MailMessage:
         main_msg["To"] = ", ".join(listize(config.to))
 
         alternate_msg = MIMEMultipart("alternative")
-        part1 = MIMEText(finalPlain, "plain")
+        part1 = MIMEText(finalPlain, "markdown")
         part2 = MIMEText(finalHTML, "html")
 
         alternate_msg.attach(part1)

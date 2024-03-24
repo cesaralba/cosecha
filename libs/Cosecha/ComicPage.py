@@ -131,10 +131,8 @@ class ComicPage(metaclass=ABCMeta):
         return ext
 
     def mailBodyFragment(self, indent=1):
-        text = f"""
-{(indent) * "#"} [{self.key} {self.comicId}]({self.URL})
-![{self.mediaURL}](cid:{self.mediaAttId}) 
-"""
+        text = f"""{(indent) * "#"} [{self.key} {self.comicId}]({self.URL})
+![{self.mediaURL}](cid:{self.mediaAttId})"""
 
         return text
 
