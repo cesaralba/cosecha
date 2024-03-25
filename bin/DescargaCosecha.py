@@ -49,7 +49,9 @@ def main(config):
     from libs.Cosecha.Harvest import Harvest
 
 # TODO: sacar el home directory
-    cosecha = Harvest(config=config, homeDirectory='.')
+    homeDir = os.path.dirname(config.filename) if config.filename else '.'
+
+    cosecha = Harvest(config=config, homeDirectory=homeDir)
 
     cosecha.go()
 
