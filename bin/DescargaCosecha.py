@@ -7,14 +7,13 @@ import sys
 
 from configargparse import ArgParser
 
-from libs.Cosecha.Config import globalConfig
-from libs.Cosecha.Harvest import Harvest
-from libs.Utils.Logging import prepareLogger
-
 logger = logging.getLogger()
 
 
 def parse_arguments():
+    from libs.Utils.Logging import prepareLogger
+    from libs.Cosecha.Config import globalConfig
+
     descriptionTXT = "Configuration to retrieve comics"
 
     parser = ArgParser(description=descriptionTXT)
@@ -45,7 +44,10 @@ def parse_arguments():
 
 
 def main(config: globalConfig):
-    # TODO: sacar el home directory
+    from libs.Cosecha.Config import globalConfig
+    from libs.Cosecha.Harvest import Harvest
+
+# TODO: sacar el home directory
     cosecha = Harvest(config=config, homeDirectory='.')
 
     cosecha.go()
@@ -57,8 +59,10 @@ if __name__ == '__main__':
     sys.run_local = os.path.abspath(__file__)
     base = os.path.dirname(sys.run_local)
     src = os.path.join(base, '..')
+    print(sys.path)
     if src not in sys.path:
         sys.path.insert(0, src)
 
+    print(sys.path)
     config = parse_arguments()
     main(config)
