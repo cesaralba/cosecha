@@ -106,14 +106,14 @@ class globalConfig:
                             help='Fichero de configuración',
                             default="etc/cosecha.cfg")  # TODO: Quitar ese valor por defect
 
-        parser.add_argument('-o', dest='saveDirectory', type=str, env_var='CS_DESTDIR',
+        parser.add_argument('-o', dest='saveDirectory', type=str, env_var='CS_DATADIR',
                             help='Root directory to store things', required=False)
         parser.add_argument('-i', dest='imagesDirectory', type=str, env_var='CS_DESTDIRIMG',
-                            help='Location to store images (supersedes ${CS_DESTDIR}/images', required=False)
+                            help='Location to store images (supersedes ${CS_DATADIR}/images', required=False)
         parser.add_argument('-m', dest='metadataDirectory', type=str, env_var='CS_DESTDIRMETA',
-                            help='Location to store metadata files (supersedes ${CS_DESTDIR}/metadata', required=False)
+                            help='Location to store metadata files (supersedes ${CS_DATADIR}/metadata', required=False)
         parser.add_argument('-s', dest='stateDirectory', type=str, env_var='CS_DESTDIRSTATE',
-                            help='Location to store state files (supersedes ${CS_DESTDIR}/state', required=False)
+                            help='Location to store state files (supersedes ${CS_DATADIR}/state', required=False)
 
         parser.add_argument('-r', dest='runnersCFG', type=str, env_var='CS_RUNNERSCFG',
                             help='Glob for configuration files of runners', required=False)
