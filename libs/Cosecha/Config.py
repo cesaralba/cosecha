@@ -70,7 +70,7 @@ class globalConfig:
 
         if 'config' in args:
             auxData['filename'] = args.config
-            logging.debug(f" Reading config file: {args.config}")
+            logging.debug(f" Reading global config file: {args.config}")
             auxData['data'] = parser = readConfigFile(args.config)
 
             auxData.update(mergeConfFileIntoDataClass(cls, parser, "GENERAL"))
@@ -188,6 +188,7 @@ class runnerConfig:
         auxData['filename'] = filename
         auxData['name'] = runnerConfFName2Name(filename)
 
+        logging.debug(f" Reading runner config file: {filename}")
         auxData['data'] = parser = readConfigFile(filename)
 
         auxData.update(mergeConfFileIntoDataClass(cls, parser, 'RUNNER'))
@@ -240,7 +241,8 @@ def readRunnerConfigs(confGlob: str, baseDir: Optional[str] = None) -> List[runn
             newConfig = runnerConfig.createFromFile(f)
             result.append(newConfig)
         except Exception as exc:
-            logging.error(f"Problems reading '{f}'. Ignoring.", exc_info=exc)
+            print(exc.with_traceback())
+            logging.error(f"Problems reading '{f}'. Ignoring.", exc_info=exc.with_traceback())
 
     return result
 
