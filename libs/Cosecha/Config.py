@@ -70,7 +70,7 @@ class globalConfig:
 
         if 'config' in args:
             auxData['filename'] = args.config
-
+            logging.debug(f" Reading config file: {args.config}")
             auxData['data'] = parser = readConfigFile(args.config)
 
             auxData.update(mergeConfFileIntoDataClass(cls, parser, "GENERAL"))
