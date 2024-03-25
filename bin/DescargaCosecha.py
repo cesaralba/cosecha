@@ -43,8 +43,7 @@ def parse_arguments():
     return configFile
 
 
-def main(config: globalConfig):
-    from libs.Cosecha.Config import globalConfig
+def main(config):
     from libs.Cosecha.Harvest import Harvest
 
 # TODO: sacar el home directory
