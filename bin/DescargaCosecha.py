@@ -30,6 +30,7 @@ def parse_arguments():
 
     args = parser.parse_args()
 
+    print(args)
     logLevel = logging.WARNING
     if args.debug:
         logLevel = logging.DEBUG
