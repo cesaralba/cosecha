@@ -190,7 +190,7 @@ class runnerConfig:
 
         logging.debug(f" Reading runner config file: {filename}")
         auxData['data'] = parser = readConfigFile(filename)
-
+        logging.debug(parser._sections)
         auxData.update(mergeConfFileIntoDataClass(cls, parser, 'RUNNER'))
 
         fileKeys = set(auxData.keys())
