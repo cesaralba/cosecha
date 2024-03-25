@@ -232,6 +232,7 @@ def runnerConfFName2Name(filename):
 
 
 def readRunnerConfigs(confGlob: str, baseDir: Optional[str] = None) -> List[runnerConfig]:
+    logging.debug(f"Searching runner conf files: baseDir: {baseDir} glob: {confGlob}")
     result = []
     confList = glob(confGlob, root_dir=baseDir)
     for f in confList:
