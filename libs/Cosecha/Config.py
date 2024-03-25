@@ -1,4 +1,5 @@
 import logging
+import os.path
 from argparse import Namespace
 from configparser import ConfigParser
 from dataclasses import dataclass, Field, field
@@ -190,7 +191,6 @@ class runnerConfig:
 
         logging.debug(f" Reading runner config file: {filename}")
         auxData['data'] = parser = readConfigFile(filename)
-        logging.debug(parser._sections)
         auxData.update(mergeConfFileIntoDataClass(cls, parser, 'RUNNER'))
 
         fileKeys = set(auxData.keys())
@@ -235,14 +235,16 @@ def runnerConfFName2Name(filename):
 def readRunnerConfigs(confGlob: str, baseDir: Optional[str] = None) -> List[runnerConfig]:
     logging.debug(f"Searching runner conf files: baseDir: {baseDir} glob: {confGlob}")
     result = []
+
     confList = glob(confGlob, root_dir=baseDir)
     for f in confList:
+        realFile = os.path.join(baseDir,f)
+
         try:
-            newConfig = runnerConfig.createFromFile(f)
+            newConfig = runnerConfig.createFromFile(realFile)
             result.append(newConfig)
         except Exception as exc:
-            print(exc.with_traceback())
-            logging.error(f"Problems reading '{f}'. Ignoring.", exc_info=exc.with_traceback())
+            logging.error(f"Problems reading '{realFile}'. Ignoring. {exc}")
 
     return result
 

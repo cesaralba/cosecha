@@ -30,7 +30,6 @@ def parse_arguments():
 
     args = parser.parse_args()
 
-    print(args)
     logLevel = logging.WARNING
     if args.debug:
         logLevel = logging.DEBUG
@@ -41,7 +40,6 @@ def parse_arguments():
 
     configFile = globalConfig.createFromArgs(args)
 
-    print(configFile.__dict__)
     return configFile
 
 
@@ -62,10 +60,9 @@ if __name__ == '__main__':
     sys.run_local = os.path.abspath(__file__)
     base = os.path.dirname(sys.run_local)
     src = os.path.dirname(base)
-    print(sys.path)
+
     if src not in sys.path:
         sys.path.insert(0, src)
 
-    print(sys.path)
     config = parse_arguments()
     main(config)
