@@ -71,13 +71,6 @@ class Page(ComicPage):
         result = f"{self.key}.{intId:05}.{ext}"
         return result
 
-    def dataPath(self):
-        pathList = [self.key]
-        return createPath(*pathList)
-
-    def metadataPath(self):
-        pathList = [self.key]
-        return createPath(*pathList)
 
     def mailBodyFragment(self, indent=1):
         title = self.info['title']

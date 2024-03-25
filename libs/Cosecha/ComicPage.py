@@ -86,21 +86,20 @@ class ComicPage(metaclass=ABCMeta):
         """Builds a dataFilename for the image"""
         raise NotImplementedError
 
-    @abstractmethod
     def dataPath(self):
-        """Builds a path for the image"""
-        raise NotImplementedError
+        pathList = [self.key]
+        return pathList
 
-    @abstractmethod
+
     def metadataPath(self):
-        """Builds a path for the image"""
-        raise NotImplementedError
+        pathList = [self.key]
+        return pathList
 
     def saveFiles(self, imgFolder: str, metadataFolder: str):
         if self.data is None:
             raise ValueError("saveFile: empty file")
 
-        dataFullPath = path.join(imgFolder, self.dataPath())
+        dataFullPath = path.join(imgFolder, *(self.dataPath()))
         makedirs(dataFullPath, mode=0o755, exist_ok=True)
         dataFilename = path.join(dataFullPath, self.dataFilename())
 
@@ -109,7 +108,7 @@ class ComicPage(metaclass=ABCMeta):
         self.saveFilePath = dataFilename
 
         self.updateInfo()
-        metaFullPath = path.join(metadataFolder, self.metadataPath())
+        metaFullPath = path.join(metadataFolder, *(self.metadataPath()))
         makedirs(metaFullPath, mode=0o755, exist_ok=True)
         metadataFilename = path.join(metaFullPath, self.metadataFilename())
         saveYAML(self.info, metadataFilename)
@@ -117,8 +116,8 @@ class ComicPage(metaclass=ABCMeta):
         self.saveMetadataPath = metadataFilename
 
     def exists(self, imgFolder: str, metadataFolder: str) -> bool:
-        metadataFilename = path.join(metadataFolder, self.metadataPath(), self.metadataFilename())
-        dataFilename = path.join(imgFolder, self.dataPath(), self.dataFilename())
+        metadataFilename = path.join(metadataFolder, *(self.metadataPath()), self.metadataFilename())
+        dataFilename = path.join(imgFolder, *(self.dataPath()), self.dataFilename())
 
         return comicPageExists(dataFilename, metadataFilename)
 
@@ -142,7 +141,7 @@ class ComicPage(metaclass=ABCMeta):
 
         filename = self.dataFilename()
         part = MIMEImage(self.data, name=filename)
-        part.add_header("Content-Disposition", f"attachment; filename=\"{filename}\"")
+        part.add_header("Content-Disposition", f"inline; filename=\"{filename}\"")
         part.add_header("X-Attachment-Id", self.mediaAttId)
         part.add_header("Content-ID", f"<{self.mediaAttId}>")
 
