@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import logging
+import os
+import sys
 
 from configargparse import ArgParser
 
@@ -50,7 +52,13 @@ def main(config: globalConfig):
 
     cosecha.print()
 
-
 if __name__ == '__main__':
+
+    sys.run_local = os.path.abspath(__file__)
+    base = os.path.dirname(sys.run_local)
+    src = os.path.join(base, '..')
+    if src not in sys.path:
+        sys.path.insert(0, src)
+
     config = parse_arguments()
     main(config)
