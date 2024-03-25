@@ -42,6 +42,9 @@ class Harvest:
         """
         self.runnerCFGs: List[runnerConfig] = readRunnerConfigs(self.globalCFG.runnersCFG, self.homeDirectory)
 
+        if not self.runnerCFGs:
+            raise EnvironmentError(f"No configuration files found for runners. HomeDir: {self.homeDirectory} Glob for confs: {self.globalCFG.runnersCFG}")
+
         for cfgData in self.runnerCFGs:
             if not (self.ignoreEnabled or cfgData.enabled):
                 continue
