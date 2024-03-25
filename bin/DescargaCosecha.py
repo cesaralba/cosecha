@@ -41,6 +41,7 @@ def parse_arguments():
 
     configFile = globalConfig.createFromArgs(args)
 
+    print(configFile.__dict__)
     return configFile
 
 
