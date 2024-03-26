@@ -5,18 +5,17 @@ from email.mime.multipart import MIMEMultipart
 from time import gmtime, strftime
 from typing import List, Optional
 
-from .Config import globalConfig, readRunnerConfigs, runnerConfig
+from .Config import globalConfig, runnerConfig
 from .Crawler import Crawler
 from .Mail import MailMessage
 
 
 class Harvest:
-    def __init__(self, config: globalConfig, homeDirectory: str, ignoreEnabled: bool = False):
+    def __init__(self, config: globalConfig, ignoreEnabled: bool = False):
 
         # Configuration items
         self.globalCFG: globalConfig = config
         self.runnerCFGs: List[runnerConfig] = []
-        self.homeDirectory = homeDirectory
 
         # Execution parameters
         self.ignoreEnabled: bool = ignoreEnabled
@@ -40,12 +39,13 @@ class Harvest:
         Creates Crawler objects from configuration files
         :return:
         """
-        self.runnerCFGs: List[runnerConfig] = readRunnerConfigs(self.globalCFG.runnersCFG, self.homeDirectory)
 
-        if not self.runnerCFGs:
-            raise EnvironmentError(f"No configuration files found for runners. HomeDir: {self.homeDirectory} Glob for confs: {self.globalCFG.runnersCFG}")
+        if not self.globalCFG.runnersData:
+            raise EnvironmentError(
+                f"No configuration files found for runners. HomeDir: {self.globalCFG.homeDirectory()} Glob for confs: "
+                f"{self.globalCFG.runnersCFG}")
 
-        for cfgData in self.runnerCFGs:
+        for cfgData in self.globalCFG.runnersData:
             if not (self.ignoreEnabled or cfgData.enabled):
                 continue
             try:

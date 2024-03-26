@@ -16,6 +16,9 @@ RUNNERVALIDMODES = {'poll', 'crawler'}
 RUNNERVALIDINITIALS = {'*first', '*last'}
 RUNNERBATCHMODES = {'crawler'}
 
+DEFAULTRUNNERMODE = "poll"
+DEFAULTRUNNERBATCHSIZE = 7
+
 
 @dataclass
 class mailConfig:
@@ -49,98 +52,6 @@ class mailConfig:
 
 
 @dataclass
-class globalConfig:
-    filename: Optional[str] = None
-    data: object = None
-    saveDirectory: str = '.'
-    imagesDirectory: str = 'images'
-    metadataDirectory: str = 'metadata'
-    stateDirectory: str = 'state'
-    defaultMode: str = 'poll'
-    runnersCFG: str = 'etc/runners.d/*.conf'
-    batchSize: int = 7
-    dryRun: bool = False
-    dontSendEmails: bool = False
-    dontSave: bool = False
-    mailCFG: mailConfig = None
-
-    @classmethod
-    def createFromArgs(cls, args: Namespace):
-
-        auxData = dict()
-
-        if 'config' in args:
-            auxData['filename'] = args.config
-            logging.debug(f" Reading global config file: {args.config}")
-            auxData['data'] = parser = readConfigFile(args.config)
-
-            auxData.update(mergeConfFileIntoDataClass(cls, parser, "GENERAL"))
-
-            auxData['mailCFG'] = mailConfig.createFromParse(parser, args.config)
-
-        for field in cls.__dataclass_fields__:
-            if field in args and args.__dict__[field]:
-
-                argValue = args.__dict__[field].strip('"').strip("'")
-                targetField = cls.__dataclass_fields__[field]
-
-                auxData[field] = convertToDataClassField(argValue, targetField)
-                if auxData.get('data', None) is not None:
-                    auxData['data'].set('GENERAL', field, auxData[field])
-
-        fileKeys = set(auxData.keys())
-        requiredClassFields = {k for k, v in cls.__dataclass_fields__.items() if
-                               not isinstance(v.default, (type(None), str, bool, int))}
-        missingKeys = requiredClassFields.difference(fileKeys)
-
-        if (missingKeys):
-            logging.error(f"{args.config}: missing required fields: {missingKeys}")
-            raise KeyError(f"{args.config}: missing required fields: {missingKeys}")
-
-        result = cls(**auxData)
-
-        return result
-
-    @classmethod
-    def addSpecificParams(cls, parser: ArgParser):
-        parser.add_argument('-c', '--config', dest='config', action="store", env_var='CS_CONFIG', required=False,
-                            help='Fichero de configuración',
-                            default="etc/cosecha.cfg")  # TODO: Quitar ese valor por defect
-
-        parser.add_argument('-o', dest='saveDirectory', type=str, env_var='CS_DATADIR',
-                            help='Root directory to store things', required=False)
-        parser.add_argument('-i', dest='imagesDirectory', type=str, env_var='CS_DESTDIRIMG',
-                            help='Location to store images (supersedes ${CS_DATADIR}/images', required=False)
-        parser.add_argument('-m', dest='metadataDirectory', type=str, env_var='CS_DESTDIRMETA',
-                            help='Location to store metadata files (supersedes ${CS_DATADIR}/metadata', required=False)
-        parser.add_argument('-s', dest='stateDirectory', type=str, env_var='CS_DESTDIRSTATE',
-                            help='Location to store state files (supersedes ${CS_DATADIR}/state', required=False)
-
-        parser.add_argument('-r', dest='runnersCFG', type=str, env_var='CS_RUNNERSCFG',
-                            help='Glob for configuration files of runners', required=False)
-
-        parser.add_argument('-n', '--dry-run', dest='dryRun', action="store_true", env_var='CS_DRYRUN',
-                            help="Don't save or send emails", required=False)
-        parser.add_argument('--no-emails', dest='dontSendEmails', action="store_true", env_var='CS_DRYRUN',
-                            help="Don't send emails", required=False)
-        parser.add_argument('--no-save', dest='dontSave', action="store_true", env_var='CS_DRYRUN',
-                            help="Don't save images", required=False)
-
-    def imagesD(self) -> str:
-        return path.join(self.saveDirectory, self.imagesDirectory)
-
-    def metadataD(self) -> str:
-        return path.join(self.saveDirectory, self.metadataDirectory)
-
-    def stateD(self) -> str:
-        return path.join(self.saveDirectory, self.stateDirectory)
-
-    @classmethod
-    def createStorePath(cls, field: str):
-        makedirs(field, mode=0o755, exist_ok=True)
-
-
-@dataclass
 class runnerConfig:
     module: str
     data: object
@@ -148,9 +59,9 @@ class runnerConfig:
     filename: Optional[str] = None
     name: Optional[str] = None
     title: Optional[str] = None
-    mode: str = globalConfig.__dataclass_fields__['defaultMode'].default
+    mode: str = DEFAULTRUNNERMODE
     initial: Optional[str] = '*last'
-    batchSize: int = globalConfig.__dataclass_fields__['batchSize'].default
+    batchSize: int = DEFAULTRUNNERBATCHSIZE
 
     def __post_init__(self):
         if not isinstance(self.batchSize, int):
@@ -207,6 +118,103 @@ class runnerConfig:
         return result
 
 
+@dataclass
+class globalConfig:
+    filename: Optional[str] = None
+    data: object = None
+    saveDirectory: str = '.'
+    imagesDirectory: str = 'images'
+    metadataDirectory: str = 'metadata'
+    stateDirectory: str = 'state'
+    runnersCFG: str = 'etc/runners.d/*.conf'
+    dryRun: bool = False
+    dontSendEmails: bool = False
+    dontSave: bool = False
+    mailCFG: mailConfig = None
+    runnersData: List[runnerConfig] = field(default_factory=list)
+
+    @classmethod
+    def createFromArgs(cls, args: Namespace):
+        fielsAddedLater = {'runnersData'}
+        auxData = dict()
+
+        if 'config' in args:
+            auxData['filename'] = args.config
+            logging.debug(f" Reading global config file: {args.config}")
+            auxData['data'] = parser = readConfigFile(args.config)
+
+            auxData.update(mergeConfFileIntoDataClass(cls, parser, "GENERAL"))
+
+            auxData['mailCFG'] = mailConfig.createFromParse(parser, args.config)
+
+        for field in cls.__dataclass_fields__:
+            if field in args and args.__dict__[field]:
+
+                auxArgValue = args.__dict__[field]
+                argValue = auxArgValue.strip('"').strip("'") if isinstance(auxArgValue, str) else auxArgValue
+                targetField = cls.__dataclass_fields__[field]
+
+                auxData[field] = convertToDataClassField(argValue, targetField)
+                if auxData.get('data', None) is not None:
+                    auxData['data'].set('GENERAL', field, str(auxData[field]))
+
+        fileKeys = set(auxData.keys())
+        requiredClassFields = {k for k, v in cls.__dataclass_fields__.items() if
+                               not isinstance(v.default, (type(None), str, bool, int))}
+        missingKeys = requiredClassFields.difference(fileKeys).difference(fielsAddedLater)
+
+        if (missingKeys):
+            logging.error(f"{args.config}: missing required fields: {missingKeys}")
+            raise KeyError(f"{args.config}: missing required fields: {missingKeys}")
+
+        result = cls(**auxData)
+
+        result.runnersData = readRunnerConfigs(result.runnersCFG, result.homeDirectory())
+
+        return result
+
+    @classmethod
+    def addSpecificParams(cls, parser: ArgParser):
+        parser.add_argument('-c', '--config', dest='config', action="store", env_var='CS_CONFIG', required=False,
+                            help='Fichero de configuración',
+                            default="etc/cosecha.cfg")  # TODO: Quitar ese valor por defect
+
+        parser.add_argument('-o', dest='saveDirectory', type=str, env_var='CS_DATADIR',
+                            help='Root directory to store things', required=False)
+        parser.add_argument('-i', dest='imagesDirectory', type=str, env_var='CS_DESTDIRIMG',
+                            help='Location to store images (supersedes ${CS_DATADIR}/images', required=False)
+        parser.add_argument('-m', dest='metadataDirectory', type=str, env_var='CS_DESTDIRMETA',
+                            help='Location to store metadata files (supersedes ${CS_DATADIR}/metadata', required=False)
+        parser.add_argument('-s', dest='stateDirectory', type=str, env_var='CS_DESTDIRSTATE',
+                            help='Location to store state files (supersedes ${CS_DATADIR}/state', required=False)
+
+        parser.add_argument('-r', dest='runnersCFG', type=str, env_var='CS_RUNNERSCFG',
+                            help='Glob for configuration files of runners', required=False)
+
+        parser.add_argument('-n', '--dry-run', dest='dryRun', action="store_true", env_var='CS_DRYRUN',
+                            help="Don't save or send emails", required=False)
+        parser.add_argument('--no-emails', dest='dontSendEmails', action="store_true", env_var='CS_DRYRUN',
+                            help="Don't send emails", required=False)
+        parser.add_argument('--no-save', dest='dontSave', action="store_true", env_var='CS_DRYRUN',
+                            help="Don't save images", required=False)
+
+    def homeDirectory(self):
+        return os.path.dirname(self.filename) if self.filename else '.'
+
+    def imagesD(self) -> str:
+        return path.join(self.saveDirectory, self.imagesDirectory)
+
+    def metadataD(self) -> str:
+        return path.join(self.saveDirectory, self.metadataDirectory)
+
+    def stateD(self) -> str:
+        return path.join(self.saveDirectory, self.stateDirectory)
+
+    @classmethod
+    def createStorePath(cls, field: str):
+        makedirs(field, mode=0o755, exist_ok=True)
+
+
 def readConfigFile(filename: str) -> ConfigParser:
     parser = ConfigParser()
     parser.read(filename)
@@ -238,7 +246,7 @@ def readRunnerConfigs(confGlob: str, baseDir: Optional[str] = None) -> List[runn
 
     confList = glob(confGlob, root_dir=baseDir)
     for f in confList:
-        realFile = os.path.join(baseDir,f)
+        realFile = os.path.join(baseDir, f)
 
         try:
             newConfig = runnerConfig.createFromFile(realFile)

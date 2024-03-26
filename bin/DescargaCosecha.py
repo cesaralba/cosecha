@@ -46,14 +46,12 @@ def parse_arguments():
 def main(config):
     from libs.Cosecha.Harvest import Harvest
 
-# TODO: sacar el home directory
-    homeDir = os.path.dirname(config.filename) if config.filename else '.'
-
-    cosecha = Harvest(config=config, homeDirectory=homeDir)
+    cosecha = Harvest(config=config)
 
     cosecha.go()
 
     cosecha.print()
+
 
 if __name__ == '__main__':
 
