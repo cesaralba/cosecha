@@ -4,6 +4,7 @@
 import logging
 import os
 import sys
+from collections import OrderedDict
 
 from configargparse import ArgParser
 
@@ -23,8 +24,11 @@ def parse_arguments():
     parser.add_argument('-d', dest='debug', action="store_true", env_var='CS_DEBUG', required=False,
                         help='Debug mode (debug)', default=False)
 
-    parser.add_argument('--ignore-enabled', dest='ignoreEnabled', action="store_true", env_var='CS_DEBUG',
-                        required=False, help='Ignores if the runner is disabled', default=False)
+    parser.add_argument('--ignore-enabled', dest='ignoreEnabled', action="store_true", required=False,
+                        help='Ignores if the runner is disabled', default=False)
+
+    parser.add_argument('-l', '--list-runners', dest='listRunners', action="store_true", required=False,
+                        help='List all runners', default=False)
 
     globalConfig.addSpecificParams(parser)
 
@@ -38,9 +42,15 @@ def parse_arguments():
 
     prepareLogger(logger=logger, level=logLevel)
 
-    configFile = globalConfig.createFromArgs(args)
+    configGlobal = globalConfig.createFromArgs(args)
 
-    return configFile
+    if (args.listRunners):
+        for k, runner in OrderedDict(sorted(configGlobal.allRunners().items(), key=lambda i: i[0].lower())).items():
+            print(f"* {k:12} '{runner.title}' (module:{runner.module},enabled:{runner.enabled},mode:{runner.mode},"
+                  f"batch:{runner.batchSize})")
+        sys.exit(0)
+
+    return configGlobal
 
 
 def main(config):

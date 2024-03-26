@@ -1,11 +1,11 @@
 import logging
 import os.path
-from argparse import Namespace
+from argparse import Namespace, REMAINDER
 from configparser import ConfigParser
 from dataclasses import dataclass, Field, field
 from glob import glob
 from os import makedirs, path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import validators
 from configargparse import ArgParser
@@ -132,6 +132,7 @@ class globalConfig:
     dontSave: bool = False
     mailCFG: mailConfig = None
     runnersData: List[runnerConfig] = field(default_factory=list)
+    requiredRunners: List[str] = field(default_factory=list)
 
     @classmethod
     def createFromArgs(cls, args: Namespace):
@@ -147,6 +148,8 @@ class globalConfig:
 
             auxData['mailCFG'] = mailConfig.createFromParse(parser, args.config)
 
+        if not args.requiredRunners:
+            auxData['requiredRunners'] = []
         for field in cls.__dataclass_fields__:
             if field in args and args.__dict__[field]:
 
@@ -171,24 +174,28 @@ class globalConfig:
 
         result.runnersData = readRunnerConfigs(result.runnersCFG, result.homeDirectory())
 
+        if not result.requiredRunners:
+            result.requiredRunners = list(result.allRunners().keys())
+
         return result
 
     @classmethod
     def addSpecificParams(cls, parser: ArgParser):
+        parser.add_argument('requiredRunners', nargs=REMAINDER)
         parser.add_argument('-c', '--config', dest='config', action="store", env_var='CS_CONFIG', required=False,
                             help='Fichero de configuración',
                             default="etc/cosecha.cfg")  # TODO: Quitar ese valor por defect
 
-        parser.add_argument('-o', dest='saveDirectory', type=str, env_var='CS_DATADIR',
+        parser.add_argument('-o', '--saveDir', dest='saveDirectory', type=str, env_var='CS_DATADIR',
                             help='Root directory to store things', required=False)
-        parser.add_argument('-i', dest='imagesDirectory', type=str, env_var='CS_DESTDIRIMG',
+        parser.add_argument('-i', '--imageDir', dest='imagesDirectory', type=str, env_var='CS_DESTDIRIMG',
                             help='Location to store images (supersedes ${CS_DATADIR}/images', required=False)
-        parser.add_argument('-m', dest='metadataDirectory', type=str, env_var='CS_DESTDIRMETA',
+        parser.add_argument('-m', '--metadataDir', dest='metadataDirectory', type=str, env_var='CS_DESTDIRMETA',
                             help='Location to store metadata files (supersedes ${CS_DATADIR}/metadata', required=False)
-        parser.add_argument('-s', dest='stateDirectory', type=str, env_var='CS_DESTDIRSTATE',
+        parser.add_argument('-s', '--stateDir', dest='stateDirectory', type=str, env_var='CS_DESTDIRSTATE',
                             help='Location to store state files (supersedes ${CS_DATADIR}/state', required=False)
 
-        parser.add_argument('-r', dest='runnersCFG', type=str, env_var='CS_RUNNERSCFG',
+        parser.add_argument('-r', '--runnersGlob', dest='runnersCFG', type=str, env_var='CS_RUNNERSCFG',
                             help='Glob for configuration files of runners', required=False)
 
         parser.add_argument('-n', '--dry-run', dest='dryRun', action="store_true", env_var='CS_DRYRUN',
@@ -213,6 +220,11 @@ class globalConfig:
     @classmethod
     def createStorePath(cls, field: str):
         makedirs(field, mode=0o755, exist_ok=True)
+
+    def allRunners(self):
+        dictRunners: Dict[str, runnerConfig] = {r.name: r for r in self.runnersData}
+
+        return dictRunners
 
 
 def readConfigFile(filename: str) -> ConfigParser:

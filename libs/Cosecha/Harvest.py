@@ -42,10 +42,17 @@ class Harvest:
 
         if not self.globalCFG.runnersData:
             raise EnvironmentError(
-                f"No configuration files found for runners. HomeDir: {self.globalCFG.homeDirectory()} Glob for confs: "
-                f"{self.globalCFG.runnersCFG}")
+                    f"No configuration files found for runners. HomeDir: {self.globalCFG.homeDirectory()} Glob for "
+                    f"confs: "
+                    f"{self.globalCFG.runnersCFG}")
 
-        for cfgData in self.globalCFG.runnersData:
+        dictRunners = self.globalCFG.allRunners()
+        for runner in sorted(self.globalCFG.requiredRunners, key=lambda k: k.lower()):
+            if runner not in dictRunners:
+                logging.error(f"Requested runner '{runner}' not in list of known runners. Run with '-l' to get a list.")
+                continue
+
+            cfgData = dictRunners[runner]
             if not (self.ignoreEnabled or cfgData.enabled):
                 continue
             try:
