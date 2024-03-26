@@ -71,9 +71,18 @@ class ComicPage(metaclass=ABCMeta):
         self.mediaAttId = make_msgid(domain=self.key)[1:-1]
         self.info['mimeType'] = self.mimeType = magic.detect_from_content(self.data).mime_type
 
+    def updateInfoLinks(self):
+        if self.linkNext:
+            self.info['next'] = self.linkNext
+        if self.linkPrev:
+            self.info['prev'] = self.linkPrev
+        if self.linkFirst:
+            self.info['first'] = self.linkFirst
+        if self.linkLast:
+            self.info['last'] = self.linkLast
+
     @abstractmethod
-    def updateInfo(self):
-        """Builds a dataFilename for the image"""
+    def updateOtherInfo(self):
         raise NotImplementedError
 
     @abstractmethod
@@ -89,7 +98,6 @@ class ComicPage(metaclass=ABCMeta):
     def dataPath(self):
         pathList = [self.key]
         return pathList
-
 
     def metadataPath(self):
         pathList = [self.key]
@@ -107,7 +115,8 @@ class ComicPage(metaclass=ABCMeta):
             bin_file.write(self.data)
         self.saveFilePath = dataFilename
 
-        self.updateInfo()
+        self.updateInfoLinks()
+        self.updateOtherInfo()
         metaFullPath = path.join(metadataFolder, *(self.metadataPath()))
         makedirs(metaFullPath, mode=0o755, exist_ok=True)
         metadataFilename = path.join(metaFullPath, self.metadataFilename())
