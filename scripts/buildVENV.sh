@@ -38,7 +38,7 @@ then
   exit 1
 fi
 
-WRKBRANCH=${CS_BRANCH:-develop}
+WRKBRANCH=${CS_BRANCH:-prod}
 
 WRKDIR="${ROOTDATA}/wrk"
 [ -d ${WRKDIR} ] && rm -rf  ${WRKDIR}
