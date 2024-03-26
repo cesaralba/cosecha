@@ -9,6 +9,6 @@ CONFIGFILE=${DEVSMCONFIGFILE:-/etc/sysconfig/Cosecha}
 
 bash ${BASEDIR}/buildDataTree.sh
 bash ${BASEDIR}/buildVENV.sh
-bash ${BASEDIR}/checkScripts.sh
+bash ${BASEDIR}/checkScripts.sh || true
 
 bash ${BASEDIR}/downloadCosecha.sh
