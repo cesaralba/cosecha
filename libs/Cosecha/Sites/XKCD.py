@@ -4,7 +4,6 @@ from typing import Optional
 import bs4
 
 from libs.Cosecha.ComicPage import ComicPage
-from libs.Utils.Misc import createPath
 from libs.Utils.Web import DownloadPage, MergeURL
 
 URLBASE = "https://xkcd.com/"
@@ -45,15 +44,9 @@ class Page(ComicPage):
         self.mediaURL = infoImg['urlImg']
         self.timestamp = pagBase.timestamp
 
-    def updateInfo(self):
-        if self.linkNext:
-            self.info['next'] = self.linkNext
-        if self.linkPrev:
-            self.info['prev'] = self.linkPrev
-        if self.linkFirst:
-            self.info['first'] = self.linkFirst
-        if self.linkLast:
-            self.info['last'] = self.linkLast
+    def updateOtherInfo(self):
+        # Will do if need arises
+        pass
 
     def dataFilename(self):
         ext = self.fileExtension()
@@ -70,7 +63,6 @@ class Page(ComicPage):
 
         result = f"{self.key}.{intId:05}.{ext}"
         return result
-
 
     def mailBodyFragment(self, indent=1):
         title = self.info['title']
