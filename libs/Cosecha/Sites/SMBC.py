@@ -31,7 +31,6 @@ class Page(ComicPage):
         pagBase = DownloadPage(self.URL)
         self.timestamp = pagBase.timestamp
         metadata = findMetadataStruct(pagBase.data)
-        print(metadata)
 
         for k in ['url', 'author', 'publisher', 'about', 'image', 'datePublished']:
             self.info[k] = metadata[k]
@@ -77,7 +76,7 @@ class Page(ComicPage):
         text = f"""{(indent) * "#"} {self.key} #{self.comicId} [{title}]({self.URL})
 ![{self.mediaURL}](cid:{self.mediaAttId})
 
-"{self.info['comment']}"
+"{self.info['comment']}" (_by {self.info['author']}_)
 """
 
         return text
