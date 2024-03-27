@@ -40,5 +40,7 @@ def extensionFromType(dataType: str):
         return 'png'
     elif dataType in {'image/jpeg'}:
         return 'jpg'
+    elif dataType in {'image/gif'}:
+        return 'gif'
     logging.error(f"Unknown type {dataType}")
     raise TypeError(f"Unknown type {dataType}")

@@ -28,16 +28,16 @@ fi
 
 for MYFILE in ${WRKDIR}/scripts/*
 do
-  FILEHERE=$(basename ${MYFILE} )
+  FILEHERE=${BASEDIR}/$(basename ${MYFILE} )
   if [ -f ${FILEHERE} ]
   then
-    MD5HERE=$(md5sum ${FILEHERE})
-    MD5WRK=$(md5sum ${MYFILE})
+    MD5HERE=$(md5sum ${FILEHERE} | awk '{print $1}')
+    MD5WRK=$(md5sum ${MYFILE} | awk '{print $1}')
 
     if [ ${MD5HERE} != ${MD5WRK} ]
     then
       echo "$(readlink -e ${FILEHERE}) and $(readlink -e ${MYFILE}) differ"
-      diff ${MD5HERE}  ${MD5WRK}
+      diff ${FILEHERE}  ${MYFILE} || true
     fi
   else
     echo "$(readlink -e ${MYFILE}) does not exist in ${BASEDIR}"
