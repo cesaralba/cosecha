@@ -2,9 +2,10 @@ import logging
 import re
 from argparse import Namespace
 from collections import namedtuple
+from collections.abc import Callable
 from time import gmtime, time
+from typing import Optional
 from urllib.parse import (parse_qs, unquote, urlencode, urljoin, urlparse, urlunparse)
-
 
 import requests
 from mechanicalsoup import StatefulBrowser
@@ -16,32 +17,37 @@ DownloadedPage = namedtuple('DownloadedPage',
                             defaults={'home': None, 'browser': None, 'config': None, 'extra': None})
 
 
-def DownloadPage(dest, home=None, browser=None, config=Namespace()) -> DownloadedPage:
+def DownloadPage(dest, home=None, browser: Optional[StatefulBrowser] = None, config=Namespace(),
+                 sanitizer: Optional[Callable[[bytes], bytes]] = None
+                 ) -> DownloadedPage:
     """
     Descarga el contenido de una pagina y lo devuelve con metadatos
     :param dest: Resultado de un link, URL absoluta o relativa.
     :param home: Situación del browser
     :param browser: Stateful Browser Object
     :param config: Namespace de configuración (de argparse) para manipular ciertas características del browser
+    :param sanitizer: Function that processes the incoming data (useful for HTML legacy whose format is like it is)
     :return: Diccionario con página bajada y metadatos varios
     """
     timeIn = time()
     if browser is None:
         browser = creaBrowser(config)
 
-    if home is None:
+    if home:
+        browser.open(home)
+        target = MergeURL(home, dest)
+        logger.debug("DownloadPage: home %s link  %s", home, target)
+        response = browser.open(target)
+    else:
         target = dest
         logger.debug("DownloadPage: no home %s", target)
-        browser.open(target)
-    elif dest.startswith('/'):
-        target = MergeURL(home, dest)
-        logger.debug("DownloadPage: home abs link  %s", target)
-        browser.open(target)
-    else:
-        browser.open(home)
-        target = dest
-        logger.debug("DownloadPage: home rel link  %s", target)
-        browser.follow_link(target)
+        response = browser.open(target)
+
+    response.raise_for_status()
+
+    if sanitizer:
+        ammended = sanitizer(response.text)
+        browser.open_fake_page(ammended, target)
 
     source = browser.get_url()
     content = browser.get_current_page()
@@ -67,7 +73,6 @@ def DownloadRawPage(dest, here=None, *args, **kwargs) -> DownloadedPage:
     destURL = MergeURL(here, dest)
 
     response = requests.get(destURL, *args, **kwargs)
-
     response.raise_for_status()
 
     timeOut = time()
@@ -75,9 +80,10 @@ def DownloadRawPage(dest, here=None, *args, **kwargs) -> DownloadedPage:
 
     logger.debug("DownloadPage: downloaded %s (%f)", destURL, timeDL)
 
-    result= DownloadedPage(source=response.url, data=response.content, timestamp=gmtime(), home=here, extra=response)
+    result = DownloadedPage(source=response.url, data=response.content, timestamp=gmtime(), home=here, extra=response)
 
     return result
+
 
 def ExtraeGetParams(url):
     """
@@ -125,7 +131,7 @@ def MergeURL(base, link):
 
 
 def creaBrowser(config=Namespace()):
-    browser = StatefulBrowser(soup_config={'features': "html.parser"}, raise_on_404=True, user_agent="SMparser", )
+    browser = StatefulBrowser(soup_config={'features': "html.parser"}, raise_on_404=True, user_agent="Cosecha", )
 
     if 'verbose' in config:
         browser.set_verbose(config.verbose)
