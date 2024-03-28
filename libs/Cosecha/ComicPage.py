@@ -57,9 +57,10 @@ class ComicPage(metaclass=ABCMeta):
         raise NotImplementedError
 
     def downloadMedia(self):
+        # If there is no URL for media, tries to download the page (again)
         if self.mediaURL is None:
             self.downloadPage()
-
+        # No, there is no way to find media. We give up
         if self.mediaURL is None:
             raise ValueError(f"Unable to find media {self.URL}")
 
@@ -70,6 +71,11 @@ class ComicPage(metaclass=ABCMeta):
         self.info['mediaHash'] = self.mediaHash = shaData(img.data)
         self.mediaAttId = make_msgid(domain=self.key)[1:-1]
         self.info['mimeType'] = self.mimeType = magic.detect_from_content(self.data).mime_type
+
+    def getRaw(self):
+        """ Commodity function for development. Returns the page as-is (without parsing nor preprocessing)"""
+        result = DownloadRawPage(self.URL)
+        return result
 
     def updateInfoLinks(self):
         if self.linkNext:
