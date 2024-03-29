@@ -73,6 +73,7 @@ class Crawler:
                 self.obj = self.module.Page(self.obj.linkNext)
             except Exception as exc:
                 logging.error(f"Crawler(crawl)'{self.name}': problem:{type(exc)} {exc}")
+                logging.exception(exc, stack_info=True)
                 break
 
     def poll(self):

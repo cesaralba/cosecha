@@ -1,4 +1,5 @@
 import logging
+import re
 from hashlib import file_digest, sha256
 
 import yaml
@@ -44,3 +45,18 @@ def extensionFromType(dataType: str):
         return 'gif'
     logging.error(f"Unknown type {dataType}")
     raise TypeError(f"Unknown type {dataType}")
+
+
+# From https://stackoverflow.com/a/55101759
+def getSaneFilenameStr(inStr: str) -> str:
+    validchars = "-_.()"
+    out = ""
+    for c in inStr.strip():
+        if str.isalpha(c) or str.isdigit(c) or (c in validchars):
+            out += c
+        else:
+            out += "_"
+
+    result = re.sub(r'__+', r'_', out).strip('_')
+
+    return result

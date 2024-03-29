@@ -3,9 +3,10 @@ from abc import ABCMeta, abstractmethod
 from email.mime.image import MIMEImage
 from email.utils import make_msgid
 from os import makedirs, path
-from time import gmtime, strftime
+from time import gmtime, strftime, struct_time
 from urllib.parse import urlsplit
-
+from typing import Optional
+from collections.abc import Callable
 import magic
 
 from libs.Utils.Files import extensionFromType, loadYAML, saveYAML, shaData, shaFile
@@ -17,25 +18,26 @@ logger = logging.getLogger()
 class ComicPage(metaclass=ABCMeta):
 
     def __init__(self, key: str, URL: str = None):
-        self.URL = URL
-        self.key = key
-        self.timestamp = gmtime()
-        self.comicDate = None  # Date from page (if nay)
-        self.comicId = None  # Any identifier related to page (if any)
-        self.mediaURL = None
-        self.data = None  # Actual image
-        self.mediaHash = None
-        self.mediaAttId = None
-        self.mimeType = None
-        self.info = {'key': key}  # Dict containing metadata related to page (alt text, title...)
-        self.saveFilePath = None
-        self.saveMetadataPath = None
+        self.URL:str = URL
+        self.key:str = key
+        self.timestamp:struct_time = gmtime()
+        self.comicDate:str = None  # Date from page (if nay)
+        self.comicId:str = None  # Any identifier related to page (if any)
+        self.mediaURL:str = None
+        self.data:Optional[bytes] = None  # Actual image
+        self.mediaHash:str = None
+        self.mediaAttId:str = None
+        self.mimeType:str = None
+        self.info:dict = {'key': key}  # Dict containing metadata related to page (alt text, title...)
+        self.otherInfo:dict = {}
+        self.saveFilePath:str = None
+        self.saveMetadataPath:str = None
 
         # Navigational links on page (if any)
-        self.linkNext = None
-        self.linkPrev = None
-        self.linkFirst = None
-        self.linkLast = None
+        self.linkNext:str = None
+        self.linkPrev:str = None
+        self.linkFirst:str = None
+        self.linkLast:str = None
 
     def __str__(self):
         dataStr = f"[{self.size()}b]" if self.data else "No data"
@@ -57,9 +59,10 @@ class ComicPage(metaclass=ABCMeta):
         raise NotImplementedError
 
     def downloadMedia(self):
+        # If there is no URL for media, tries to download the page (again)
         if self.mediaURL is None:
             self.downloadPage()
-
+        # No, there is no way to find media. We give up
         if self.mediaURL is None:
             raise ValueError(f"Unable to find media {self.URL}")
 
@@ -70,6 +73,11 @@ class ComicPage(metaclass=ABCMeta):
         self.info['mediaHash'] = self.mediaHash = shaData(img.data)
         self.mediaAttId = make_msgid(domain=self.key)[1:-1]
         self.info['mimeType'] = self.mimeType = magic.detect_from_content(self.data).mime_type
+
+    def getRaw(self, sanitizer: Optional[Callable[[bytes], bytes]] = None):
+        """ Commodity function for development. Returns the page as-is (without parsing nor preprocessing)"""
+        result = DownloadRawPage(self.URL,sanitizer=sanitizer)
+        return result
 
     def updateInfoLinks(self):
         if self.linkNext:
