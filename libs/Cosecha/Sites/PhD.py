@@ -1,12 +1,14 @@
-import json
+import logging
+import os.path
 import re
-from typing import Optional
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlencode, urlparse
 
 import bs4
+from markdownify import markdownify
 
 from libs.Cosecha.ComicPage import ComicPage
-from libs.Utils.Web import DownloadPage, MergeURL,DownloadRawPage
+from libs.Utils.Files import getSaneFilenameStr
+from libs.Utils.Web import DownloadPage
 
 URLBASE = "https://phdcomics.com/"
 KEY = "PhD"
@@ -27,37 +29,27 @@ class Page(ComicPage):
 
     def downloadPage(self):
         self.info = dict()
-        RawPage=DownloadRawPage(self.URL)
-        self.timestamp = RawPage.timestamp
 
-        mendedPage=RawPage.data.replace(b'--!>',b'-->').replace(b'\t',b' ').replace(b'\n',b' ')
-        pagBase=bs4.BeautifulSoup(mendedPage, 'html.parser')
+        pagBase = DownloadPage(self.URL, sanitizer=sanitizer)
+        self.timestamp = pagBase.timestamp
+        metadata = findMetas(pagBase.data)
+        for k in ['urlImg', 'title', 'id', 'url']:
+            if k in metadata:
+                self.info[k] = metadata[k]
 
-        metadata = findMetas(pagBase)
+        self.URL = metadata['url']
+        self.mediaURL = metadata['urlImg']
+        self.comicId = self.info['id']
 
         self.linkNext = metadata.get('next')
         self.linkPrev = metadata.get('prev')
         self.linkFirst = metadata.get('first')
         self.linkLast = metadata.get('last')
 
+        self.info['titleStr'] = getSaneFilenameStr(self.info['title'])
 
-        print(metadata)
-        return
-
-        for k in ['url', 'author', 'publisher', 'about', 'image', 'datePublished']:
-            self.info[k] = metadata[k]
-        self.info['title'] = metadata['name'].lstrip('Saturday Morning Breakfast Cereal - ')
-        self.URL = metadata['url']
-        self.mediaURL = metadata['image']
-        self.comicDate = metadata['datePublished']
-        self.comicId = self.info['id'] = extractId(self.comicDate)
-
-        links = findComicLinks(pagBase.data, here=self.URL)
-
-        infoImg = findComicImg(pagBase.data, url=self.mediaURL, here=self.URL)
-        self.info['comment'] = infoImg['comment']
-        self.mediaURL = infoImg['urlImg']
-        self.info['titleStr'] = findURLstr(self.info['url'])
+        comments = findFootNotes(webContent=pagBase.data, urlIMG=self.mediaURL)
+        self.info['comments'] = comments
 
     def updateOtherInfo(self):
         # Will do if need arises
@@ -65,32 +57,34 @@ class Page(ComicPage):
 
     def dataFilename(self):
         ext = self.fileExtension()
-        intId = self.comicId
+        intId = int(self.comicId)
         title = self.info['titleStr']
 
-        result = f"{self.key}.{intId}-{title}.{ext}"
+        result = f"{self.key}.{intId:04}-{title}.{ext}"
 
         return result
 
     def metadataFilename(self):
         ext = 'yml'
-        intId = self.comicId
+        intId = int(self.comicId)
 
-        result = f"{self.key}.{intId}.{ext}"
+        result = f"{self.key}.{intId:04}.{ext}"
         return result
 
     def mailBodyFragment(self, indent=1):
         title = self.info['title']
+        commentsStr = ""
+        if 'comments' in self.info:
+            commentsStr = "\n".join(map(lambda c: f"* {c}", self.info['comments']))
+
         text = f"""{(indent) * "#"} {self.key} #{self.comicId} [{title}]({self.URL})
 ![{self.mediaURL}](cid:{self.mediaAttId})
 
-"{self.info['comment']}" (_by {self.info['author']}_)
+{commentsStr}
 """
 
         return text
 
-    def URLfromId(self,comicId:str):
-        pass
 
 ###############################
 def findMetas(webContent: bs4.BeautifulSoup):
@@ -109,32 +103,28 @@ def findMetas(webContent: bs4.BeautifulSoup):
         comicId = extractId(urlPrint)
         if comicId is not None:
             result['id'] = comicId
+            result['url'] = URLfromId(result['id'])
         else:
             raise ValueError(f'Unable to find Comic ID in {urlPrint}')
     else:
         raise ValueError(f'Unable to find URL for print')
 
-    INFOLINKS = [('prev',  'http://phdcomics.com/comics/images/prev_button.gif'),
+    INFOLINKS = [('prev', 'http://phdcomics.com/comics/images/prev_button.gif'),
                  ('first', 'http://phdcomics.com/comics/images/first_button.gif'),
-                 ('next',  'http://phdcomics.com/comics/images/next_button.gif')]
+                 ('next', 'http://phdcomics.com/comics/images/next_button.gif')]
 
     for label, iconLink in INFOLINKS:
-        parent=parentOf(webContent,'img',attrs={'src': iconLink})
+        parent = parentOf(webContent, 'img', attrs={'src': iconLink})
         if parent:
-            destLnk=parent['href']
-            result[label]=destLnk
-
-
-    for i in webContent.find_all('img'):
-        print(f" ---> {i['src']}")
-    print(result)
+            destLnk = parent['href']
+            result[label] = destLnk
 
     return result
 
 
 def parentOf(webContent: bs4.BeautifulSoup, *kargs, **kwargs):
     son = webContent.find(*kargs, **kwargs)
-    print(f"{kwargs} -> {son}")
+
     if son:
         return son.parent
 
@@ -149,49 +139,83 @@ def extractId(url: str):
     return None
 
 
-def findComicLinks(webContent: bs4.BeautifulSoup, here: Optional[str] = None):
-    result = dict()
-
-    barNav = webContent.find('nav', {"class": "cc-nav", "role": "navigation"})
-    for item in barNav.findAll('a'):
-        text = item.text
-        if 'rel' not in item.attrs:
-            continue
-        rel = item.attrs['rel'][0]
-        dest = item.attrs['href']
-        if rel not in {'first', 'prev', 'next', 'last'}:
-            raise ValueError(f"{item} '{rel}' It shouldn't have reached here")
-        destURL = MergeURL(here, dest)
-
-        if destURL == here:
-            continue
-        result[rel] = destURL
-
-    return result
-
-
-def findComicImg(webContent: bs4.BeautifulSoup, url: Optional[str], here: Optional[str] = None):
-    attrs = {'id': 'cc-comic'}
-    if url:
-        attrs['src'] = url
-
-    result = dict()
-
-    imgLink = webContent.find('img', attrs=attrs)
-
-    result['comment'] = imgLink.attrs['title']
-    dest = imgLink.attrs['src']
-    result['urlImg'] = MergeURL(here, dest)
-
-    return result
-
-
-def findURLstr(url: str):
-    pat = r'/(?P<titleStr>[^./]+)$'
-    match = re.search(pat, url)
-    if match:
-        result = match['titleStr']
+def sanitizer(raw: (bytes, str)) -> bytes:
+    """
+    Applies some changes to the page so it can be parsed. Let's say the HTML is 'legacy'
+    :param raw:
+    :return:
+    """
+    if isinstance(raw, bytes):
+        result = raw.replace(b'--!>', b'-->').replace(b'\t', b' ').replace(b'\n', b' ')
+        result2 = re.sub(rb'\s+', rb' ', result)
+    elif isinstance(raw, str):
+        result = raw.replace('--!>', '-->').replace('\t', ' ').replace('\n', ' ')
+        result2 = re.sub(r'\s+', r' ', result)
     else:
-        raise ValueError(f"findComicImg: '{url}' doesn't match pattern '{pat}'")
+        raise TypeError(f"sanitizer: don't know what to do with type {type(raw)}")
 
+    return result2
+
+
+def URLfromId(comicId: str):
+    """
+    Builds the PhD URL for a specific ID
+    :param comicId:
+    :return:
+    """
+    refURL = 'https://phdcomics.com/comics/archive.php?comicid=2002'
+
+    parsedURL = urlparse(refURL)
+    queryStr = parse_qs(parsedURL.query)
+    queryStr['comicid'] = comicId
+    newParsedURL = parsedURL._replace(query=urlencode(queryStr))
+    result = newParsedURL.geturl()
+
+    return result
+
+
+def findFootNotes(webContent: bs4.BeautifulSoup, urlIMG: str):
+    result = []
+
+    def imgNameWithoutExt(path: str):
+        fullFname = os.path.basename(path)
+        result = re.sub(r'\.[^.]*$', '', fullFname)
+        return result
+
+    def imgMatch(t: bs4.Tag, reqfname: str):
+        if t.name != 'img':
+            return False
+
+        if 'src' not in t.attrs:
+            return False
+        provPath = urlparse(t['src']).path
+        provFname = imgNameWithoutExt(provPath)
+        result = (provFname == reqfname)
+        return result
+
+    reqPath = urlparse(urlIMG).path
+    reqFName = imgNameWithoutExt(reqPath)
+
+    imgElem = webContent.find(lambda t: imgMatch(t, reqFName))
+    if imgElem is None:
+
+        for i in webContent.find_all('img'):
+            logging.debug(f"Found img: '{i}")
+        raise ValueError("Unable to find Image element with picture")
+    divFootNotes = imgElem.fetchNextSiblings('div')
+    for div in divFootNotes:
+        tabElems = div.find_all('table')
+        if not tabElems:
+            continue
+        for tab in tabElems:
+            auxSubstrs = []
+            for td in tab.find_all('td'):
+                for child in td.find_all('i'):
+                    oldText = child.text
+                    newText = oldText.replace('**', '').strip()
+                    if oldText != newText:
+                        child.string.replace_with(newText)
+                auxSubstrs.append(markdownify(td.prettify(), strip=['td']).replace('\n', ' ').strip())
+
+            result.extend(auxSubstrs)
     return result
