@@ -59,7 +59,7 @@ def DownloadPage(dest, home=None, browser: Optional[StatefulBrowser] = None, con
     return DownloadedPage(source=source, data=content, timestamp=gmtime(), home=home, browser=browser, config=config)
 
 
-def DownloadRawPage(dest, here=None, *args, **kwargs) -> DownloadedPage:
+def DownloadRawPage(dest, here=None, sanitizer: Optional[Callable[[bytes], bytes]] = None, *args, **kwargs) -> DownloadedPage:
     """
     Descarga el contenido de una pagina y lo devuelve con metadatos
     :param dest: Resultado de un link, URL absoluta o relativa.
@@ -78,9 +78,10 @@ def DownloadRawPage(dest, here=None, *args, **kwargs) -> DownloadedPage:
     timeOut = time()
     timeDL = timeOut - timeIn
 
+    resultData = sanitizer(response.content) if sanitizer else response.content
     logger.debug("DownloadPage: downloaded %s (%f)", destURL, timeDL)
 
-    result = DownloadedPage(source=response.url, data=response.content, timestamp=gmtime(), home=here, extra=response)
+    result = DownloadedPage(source=response.url, data=resultData, timestamp=gmtime(), home=here, extra=response)
 
     return result
 
