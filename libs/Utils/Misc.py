@@ -1,8 +1,10 @@
 import gzip
 import re
 from collections import defaultdict
+from datetime import datetime
 from pathlib import Path
 from time import gmtime
+from typing import Tuple
 
 ####################################################################################################################
 
@@ -185,3 +187,23 @@ def cosaCorta(c1, c2):
 
 def cosaLarga(c1, c2):
     return (c2 if len(c2) > len(c1) else c1)
+
+
+def datePub2structTime(datePublished, format):
+    result = datetime.strptime(datePublished, format)
+    return result
+
+
+def datePub2Id(datePublished: str, formatDatePub: str, formatId: str) -> str:
+    datePub = datePub2structTime(datePublished, formatDatePub)
+    result = datePub.strftime(formatId)
+
+    return result
+
+
+def stripPubDate(datePublished: str, formatDatePub: str) -> Tuple[str, str, str, str, str, str]:
+    datePub = datePub2structTime(datePublished, formatDatePub)
+    result = datePub.strftime('%Y'), datePub.strftime('%m'), datePub.strftime('%d'), datePub.strftime(
+            '%H'), datePub.strftime('%M'), datePub.strftime('%S')
+
+    return result
