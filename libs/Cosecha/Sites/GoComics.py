@@ -142,30 +142,3 @@ def findComicLinks(webContent: bs4.BeautifulSoup, here: Optional[str] = None):
 
 
 ###############################
-
-
-def findComicImg(webContent: bs4.BeautifulSoup, url: Optional[str], here: Optional[str] = None):
-    attrs = {'id': 'cc-comic'}
-    if url:
-        attrs['src'] = url
-
-    result = dict()
-
-    imgLink = webContent.find('img', attrs=attrs)
-
-    result['comment'] = imgLink.attrs['title']
-    dest = imgLink.attrs['src']
-    result['urlImg'] = MergeURL(here, dest)
-
-    return result
-
-
-def findURLstr(url: str):
-    pat = r'/(?P<titleStr>[^./]+)$'
-    match = re.search(pat, url)
-    if match:
-        result = match['titleStr']
-    else:
-        raise ValueError(f"findComicImg: '{url}' doesn't match pattern '{pat}'")
-
-    return result
