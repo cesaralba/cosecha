@@ -58,9 +58,10 @@ class Harvest:
             try:
                 newCrawler = Crawler(runnerCFG=cfgData, globalCFG=self.globalCFG)
                 self.crawlers.append(newCrawler)
-                logging.debug(f"Created Crowler '{newCrawler.name}'")
+                logging.debug(f"Created Crawler '{newCrawler.name}'")
             except Exception as exc:
                 logging.error(f"Problems creating Crawler '{cfgData.filename}'  {type(exc)}:{exc}", stack_info=True)
+                logging.exception(exc, stack_info=True)
 
         if not (self.crawlers):
             logging.warning("No crawlers to execute")
