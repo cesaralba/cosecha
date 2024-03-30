@@ -158,3 +158,12 @@ def getObjID(objURL, clave='id', defaultresult=sentinel):
         raise ValueError(f"getObjID '{objURL}' no casa patrón '{PATid}' para clave '{clave}'")
 
     return defaultresult
+
+
+def findObjectsWithAttributes(webContent, targetTag, targetInfo):
+    result = dict()
+    for k, fname, fvalue in targetInfo:
+        metaF = webContent.find(targetTag, attrs={fname: fvalue})
+        if metaF:
+            result[k] = metaF
+    return result
