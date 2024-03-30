@@ -1,6 +1,6 @@
 import json
 import re
-from typing import Optional,List
+from typing import List, Optional
 
 import bs4
 
@@ -14,9 +14,11 @@ KEY = "smbc"
 
 class Page(ComicPage):
 
-    def __init__(self, URL: str = None,**kwargs):
-        auxURL = URL or URLBASE
-        super().__init__(key=KEY, URL=auxURL,**kwargs)
+    def __init__(self, **kwargs):
+        auxKey = kwargs.pop('key', None) or KEY
+        auxURL = kwargs.pop('URL', None) or URLBASE
+
+        super().__init__(key=auxKey, URL=auxURL, **kwargs)
 
     def __str__(self):
         dataStr = f"[{self.size()}b]" if self.data else "No data"
@@ -38,7 +40,7 @@ class Page(ComicPage):
         self.URL = metadata['url']
         self.mediaURL = metadata['image']
         self.comicDate = metadata['datePublished']
-        self.comicId = self.info['id'] = datePub2Id(self.comicDate,'%Y-%m-%dT%H:%M:%S%z','%Y%m%dT%H%M')
+        self.comicId = self.info['id'] = datePub2Id(self.comicDate, '%Y-%m-%dT%H:%M:%S%z', '%Y%m%dT%H%M')
 
         links = findComicLinks(pagBase.data, here=self.URL)
         self.linkNext = links.get('next')
@@ -56,14 +58,13 @@ class Page(ComicPage):
         pass
 
     def sharedPath(self) -> List[str]:
-        year,_,_,_,_,_ = stripPubDate(self.comicDate,'%Y-%m-%dT%H:%M:%S%z')
-        pathList = [self.key,year]
+        year, _, _, _, _, _ = stripPubDate(self.comicDate, '%Y-%m-%dT%H:%M:%S%z')
+        pathList = [self.key, year]
 
         return pathList
 
     dataPath = sharedPath
     metadataPath = sharedPath
-
 
     def dataFilename(self):
         ext = self.fileExtension()
