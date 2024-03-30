@@ -59,7 +59,8 @@ def DownloadPage(dest, home=None, browser: Optional[StatefulBrowser] = None, con
     return DownloadedPage(source=source, data=content, timestamp=gmtime(), home=home, browser=browser, config=config)
 
 
-def DownloadRawPage(dest, here=None, sanitizer: Optional[Callable[[bytes], bytes]] = None, *args, **kwargs) -> DownloadedPage:
+def DownloadRawPage(dest, here=None, sanitizer: Optional[Callable[[bytes], bytes]] = None, *args, **kwargs
+                    ) -> DownloadedPage:
     """
     Descarga el contenido de una pagina y lo devuelve con metadatos
     :param dest: Resultado de un link, URL absoluta o relativa.
@@ -158,3 +159,12 @@ def getObjID(objURL, clave='id', defaultresult=sentinel):
         raise ValueError(f"getObjID '{objURL}' no casa patrón '{PATid}' para clave '{clave}'")
 
     return defaultresult
+
+
+def findObjectsWithAttributes(webContent, targetTag, targetInfo):
+    result = dict()
+    for k, fname, fvalue in targetInfo:
+        metaF = webContent.find(targetTag, attrs={fname: fvalue})
+        if metaF:
+            result[k] = metaF
+    return result

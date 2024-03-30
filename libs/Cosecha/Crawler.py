@@ -19,7 +19,8 @@ class Crawler:
         self.name = self.runnerCFG.name
         self.state = CrawlerState(self.name, self.globalCFG.stateD()).load()
         self.module = self.RunnerModule(self.runnerCFG.module)
-        self.obj: ComicPage = self.module.Page(self.state.lastURL)
+        self.obj: ComicPage = self.module.Page(URL=self.state.lastURL,**dict(self.runnerCFG.data['RUNNER']))
+        self.key: str = self.obj.key
         self.results = list()
 
     def RunnerModule(self, moduleName: str, classLocation: str = "libs.Cosecha.Sites"):
@@ -52,12 +53,12 @@ class Crawler:
                     self.obj.downloadPage()
                     initialLink = self.runnerCFG.initial.lower()
                     if (initialLink == '*first'):
-                        self.obj = self.module.Page(self.obj.linkFirst)
+                        self.obj = self.module.Page(key=self.key,URL=self.obj.linkFirst)
                     elif (initialLink == '*last'):
                         # We are already on last edited picture
                         pass
                     elif validators.url(self.runnerCFG.initial):
-                        self.obj = self.module.Page(self.runnerCFG.initial)
+                        self.obj = self.module.Page(key=self.key,URL=self.runnerCFG.initial)
                     else:
                         raise ValueError(f"Runner: '{self.name}' {self.runnerCFG.filename}:Unknown initial value:'"
                                          f"{self.runnerCFG.initial}'")
@@ -70,7 +71,7 @@ class Crawler:
                     self.state.update(self.obj)
                 else:
                     logging.debug(f"'{self.name}' {self.obj.URL}: already downloaded")
-                self.obj = self.module.Page(self.obj.linkNext)
+                self.obj = self.module.Page(key=self.key, URL=self.obj.linkNext)
             except Exception as exc:
                 logging.error(f"Crawler(crawl)'{self.name}': problem:{type(exc)} {exc}")
                 logging.exception(exc, stack_info=True)
@@ -88,6 +89,7 @@ class Crawler:
                 logging.debug(f"'{self.name}': already downloaded")
         except Exception as exc:
             logging.error(f"Crawler(poll)'{self.name}': problem:{type(exc)} {exc}")
+            logging.exception(exc,stack_info=True)
 
 
 class CrawlerState:
