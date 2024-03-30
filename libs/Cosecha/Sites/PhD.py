@@ -16,9 +16,11 @@ KEY = "PhD"
 
 class Page(ComicPage):
 
-    def __init__(self, URL: str = None):
-        auxURL = URL or URLBASE
-        super().__init__(key=KEY, URL=auxURL)
+    def __init__(self, **kwargs):
+        auxKey = kwargs.pop('key', None) or KEY
+        auxURL = kwargs.pop('URL', None) or URLBASE
+
+        super().__init__(key=auxKey, URL=auxURL,**kwargs)
 
     def __str__(self):
         dataStr = f"[{self.size()}b]" if self.data else "No data"
