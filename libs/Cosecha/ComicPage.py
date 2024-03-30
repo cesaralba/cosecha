@@ -1,10 +1,13 @@
 import logging
 from abc import ABCMeta, abstractmethod
+from collections.abc import Callable
 from email.mime.image import MIMEImage
 from email.utils import make_msgid
 from os import makedirs, path
-from time import gmtime, strftime
+from time import gmtime, strftime, struct_time
+from typing import Dict, List, Optional
 from urllib.parse import urlsplit
+import validators
 
 import magic
 
@@ -16,26 +19,34 @@ logger = logging.getLogger()
 
 class ComicPage(metaclass=ABCMeta):
 
-    def __init__(self, key: str, URL: str = None):
-        self.URL = URL
-        self.key = key
-        self.timestamp = gmtime()
-        self.comicDate = None  # Date from page (if nay)
-        self.comicId = None  # Any identifier related to page (if any)
-        self.mediaURL = None
-        self.data = None  # Actual image
-        self.mediaHash = None
-        self.mediaAttId = None
-        self.mimeType = None
-        self.info = {'key': key}  # Dict containing metadata related to page (alt text, title...)
-        self.saveFilePath = None
-        self.saveMetadataPath = None
+    def __init__(self,**kwargs):
+        auxKey = kwargs.get('key',None)
+        if not auxKey:
+            raise KeyError("Missing key parameter")
+        auxURL = kwargs.get('URL',None)
+        if not auxURL or not validators.url(auxURL):
+            raise KeyError(f"Missing or invalid URL parameter {auxURL}")
+
+        self.URL: str = auxURL
+        self.key: str = auxKey
+        self.timestamp: struct_time = gmtime()
+        self.comicDate: Optional[str] = None  # Date from page (if nay)
+        self.comicId: Optional[str] = None  # Any identifier related to page (if any)
+        self.mediaURL: Optional[str] = None
+        self.data: Optional[bytes] = None  # Actual image
+        self.mediaHash: Optional[str] = None
+        self.mediaAttId: Optional[str] = None
+        self.mimeType: Optional[str] = None
+        self.info: dict = {'key': self.key}  # Dict containing metadata related to page (alt text, title...)
+        self.otherInfo: dict = {}
+        self.saveFilePath: Optional[str] = None
+        self.saveMetadataPath: Optional[str] = None
 
         # Navigational links on page (if any)
-        self.linkNext = None
-        self.linkPrev = None
-        self.linkFirst = None
-        self.linkLast = None
+        self.linkNext: Optional[str] = None
+        self.linkPrev: Optional[str] = None
+        self.linkFirst: Optional[str] = None
+        self.linkLast: Optional[str] = None
 
     def __str__(self):
         dataStr = f"[{self.size()}b]" if self.data else "No data"
@@ -57,9 +68,10 @@ class ComicPage(metaclass=ABCMeta):
         raise NotImplementedError
 
     def downloadMedia(self):
+        # If there is no URL for media, tries to download the page (again)
         if self.mediaURL is None:
             self.downloadPage()
-
+        # No, there is no way to find media. We give up
         if self.mediaURL is None:
             raise ValueError(f"Unable to find media {self.URL}")
 
@@ -70,6 +82,17 @@ class ComicPage(metaclass=ABCMeta):
         self.info['mediaHash'] = self.mediaHash = shaData(img.data)
         self.mediaAttId = make_msgid(domain=self.key)[1:-1]
         self.info['mimeType'] = self.mimeType = magic.detect_from_content(self.data).mime_type
+
+    def getRaw(self, sanitizer: Optional[Callable[[bytes], bytes]] = None):
+        """ Commodity function for development. Returns the page as-is (without parsing nor preprocessing)"""
+        result = DownloadRawPage(self.URL, sanitizer=sanitizer)
+        return result
+
+    def updateLinksFromDict(self, links: Dict[str, str]):
+        self.linkNext = links.get('next')
+        self.linkPrev = links.get('prev')
+        self.linkFirst = links.get('first')
+        self.linkLast = links.get('last')
 
     def updateInfoLinks(self):
         if self.linkNext:
@@ -95,13 +118,13 @@ class ComicPage(metaclass=ABCMeta):
         """Builds a dataFilename for the image"""
         raise NotImplementedError
 
-    def dataPath(self):
+    def sharedPath(self) -> List[str]:
         pathList = [self.key]
+
         return pathList
 
-    def metadataPath(self):
-        pathList = [self.key]
-        return pathList
+    dataPath = sharedPath
+    metadataPath = sharedPath
 
     def saveFiles(self, imgFolder: str, metadataFolder: str):
         if self.data is None:
@@ -110,6 +133,8 @@ class ComicPage(metaclass=ABCMeta):
         dataFullPath = path.join(imgFolder, *(self.dataPath()))
         makedirs(dataFullPath, mode=0o755, exist_ok=True)
         dataFilename = path.join(dataFullPath, self.dataFilename())
+        self.info['filename'] = self.dataFilename()
+        self.info['fullFilename'] = dataFilename
 
         with open(dataFilename, "wb") as bin_file:
             bin_file.write(self.data)
@@ -126,14 +151,49 @@ class ComicPage(metaclass=ABCMeta):
 
     def exists(self, imgFolder: str, metadataFolder: str) -> bool:
         metadataFilename = path.join(metadataFolder, *(self.metadataPath()), self.metadataFilename())
-        dataFilename = path.join(imgFolder, *(self.dataPath()), self.dataFilename())
+        dataPath = path.join(imgFolder, *(self.dataPath()))
 
-        return comicPageExists(dataFilename, metadataFilename)
+        if not path.exists(metadataFilename):
+            return False
+
+        metadata = loadYAML(metadataFilename)
+
+        if 'fullFilename' in metadata and path.exists(metadata['fullFilename']):  # We have file locations in metadata
+            result = shaFile(metadata['fullFilename']) == metadata.get('mediaHash')
+            expectedPath = path.dirname(metadata['fullFilename'])
+            if path.realpath(expectedPath) != path.realpath(dataPath):
+                logging.warning(
+                    f"File {metadata['fullFilename']} location {expectedPath} is not where it was expected {dataPath}")
+            return result
+        elif 'filename' in metadata and path.exists(path.join(dataPath, metadata['filename'])):  # Id
+            wrkFileName = path.join(dataPath, metadata['filename'])
+            result = shaFile(wrkFileName) == metadata.get('mediaHash')
+            return result
+        else:  # We have to compose name
+            dataFilename = self.dataFilename()
+            if not dataFilename:
+                logging.warning(
+                    f"{self.key}: Unable to calculate comic filename for '{self.comicId}' with existing information")
+                return False
+        fullFilename = path.join(dataPath, self.dataFilename())
+
+        if not path.exists(fullFilename):
+            return False
+        hashData = shaFile(fullFilename)
+
+        if metadata['mediaHash'] != hashData:
+            return False
+
+        return True
 
     def fileExtension(self):
         if self.data is None:  # Not downloaded, get the info from URL
+            if not self.mediaURL:
+                raise ValueError(f"Called function with mediaURL set")
             urlpath = urlsplit(self.mediaURL).path
             ext = path.splitext(urlpath)[1].lstrip('.').lower()
+            if ext == '':
+                raise ValueError(f"Impossible to deduct extension from URL '{self.mediaURL}'")
         else:
             ext = extensionFromType(self.mimeType).lower()
         return ext
@@ -157,16 +217,3 @@ class ComicPage(metaclass=ABCMeta):
         return part
 
     # TODO: updateDB  # TODO: mailContent
-
-
-def comicPageExists(dataFilename: str, metadataFilename: str) -> bool:
-    if not (path.exists(metadataFilename) and path.exists(dataFilename)):
-        return False
-
-    metadata = loadYAML(metadataFilename)
-    hashData = shaFile(dataFilename)
-
-    if metadata['mediaHash'] != hashData:
-        return False
-
-    return True
