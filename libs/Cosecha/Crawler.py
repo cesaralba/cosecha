@@ -23,6 +23,13 @@ class Crawler:
         self.key: str = self.obj.key
         self.results = list()
 
+    def __str__(self):
+        result = (f"[Crawler: '{self.name}' [{self.key},{self.runnerCFG.module},{self.runnerCFG.mode}] Results: "
+                  f"{len(self.results)}")
+        return result
+
+    __repr__ = __str__
+
     def RunnerModule(self, moduleName: str, classLocation: str = "libs.Cosecha.Sites"):
         fullModName = f"{classLocation}.{moduleName}"
 
