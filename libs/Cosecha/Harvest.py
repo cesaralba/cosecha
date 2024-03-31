@@ -122,7 +122,10 @@ class MailDelivery:
 
     def prepareDelivery(self, harvest: Harvest):
 
+        logging.warning(f"{harvest.crawlers}")
+
         for crawler in sorted(harvest.crawlers, key=lambda c: c.name):
+            logging.debug(f"Preparing crawler {crawler.name}")
             crawlerMessages: List[MailMessage] = []
             if not crawler.results:
                 continue
@@ -145,6 +148,7 @@ class MailDelivery:
                                 f"anyway but it may not reach destination")
                     self.currMessage.addImage(crawler, image)
 
+            logging.warning(f"PrepareDelivery {crawler} {crawler.name}")
             for bid, msg in enumerate(crawlerMessages, start=1):
                 msg.bundles[crawler.name].setId(bid)
                 msg.bundles[crawler.name].setCnt(len(crawlerMessages))
