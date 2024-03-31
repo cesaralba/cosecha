@@ -130,9 +130,10 @@ class globalConfig:
     dryRun: bool = False
     dontSendEmails: bool = False
     dontSave: bool = False
-    mailCFG: mailConfig = None
+    mailCFG: Optional[mailConfig] = None
     runnersData: List[runnerConfig] = field(default_factory=list)
     requiredRunners: List[str] = field(default_factory=list)
+    maxBatchSize: int = 7
 
     @classmethod
     def createFromArgs(cls, args: Namespace):
@@ -204,6 +205,9 @@ class globalConfig:
                             help="Don't send emails", required=False)
         parser.add_argument('--no-save', dest='dontSave', action="store_true", env_var='CS_DRYRUN',
                             help="Don't save images", required=False)
+
+        parser.add_argument('-x', '--maxBatchSize', dest='maxBatchSize', type=int,
+                            help='Maximum number of images to download for a crawler', required=False)
 
     def homeDirectory(self):
         return os.path.dirname(self.filename) if self.filename else '.'
