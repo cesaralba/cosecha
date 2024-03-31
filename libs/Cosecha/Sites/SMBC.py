@@ -1,11 +1,11 @@
 import json
 import re
-from typing import List, Optional
+from typing import Optional
 
 import bs4
 
 from libs.Cosecha.ComicPage import ComicPage
-from libs.Utils.Misc import datePub2Id, stripPubDate
+from libs.Utils.Misc import datePub2Id
 from libs.Utils.Web import DownloadPage, MergeURL
 
 URLBASE = "https://www.smbc-comics.com/"
@@ -13,6 +13,8 @@ KEY = "smbc"
 
 
 class Page(ComicPage):
+    DATEFORMAT = '%Y-%m-%dT%H:%M:%S%z'
+    IDFROMDATE = '%Y%m%dT%H%M'
 
     def __init__(self, **kwargs):
         auxKey = kwargs.pop('key', None) or KEY
@@ -40,7 +42,7 @@ class Page(ComicPage):
         self.URL = metadata['url']
         self.mediaURL = metadata['image']
         self.comicDate = metadata['datePublished']
-        self.comicId = self.info['id'] = datePub2Id(self.comicDate, '%Y-%m-%dT%H:%M:%S%z', '%Y%m%dT%H%M')
+        self.comicId = self.info['id'] = datePub2Id(self.comicDate, self.DATEFORMAT, self.IDFROMDATE)
 
         links = findComicLinks(pagBase.data, here=self.URL)
         self.linkNext = links.get('next')
@@ -57,14 +59,8 @@ class Page(ComicPage):
         # Will do if need arises
         pass
 
-    def sharedPath(self) -> List[str]:
-        year, _, _, _, _, _ = stripPubDate(self.comicDate, '%Y-%m-%dT%H:%M:%S%z')
-        pathList = [self.key, year]
-
-        return pathList
-
-    dataPath = sharedPath
-    metadataPath = sharedPath
+    dataPath = ComicPage.sharedPathWithDate
+    metadataPath = ComicPage.sharedPathWithDate
 
     def dataFilename(self):
         ext = self.fileExtension()

@@ -72,7 +72,7 @@ class Harvest:
             crawler.go()
 
     def save(self):
-        for crawler in self.crawlers:
+        for crawler in self.usefulCrawlers():
             savedFiles = []
             if crawler.results:
                 for res in crawler.results:
@@ -90,7 +90,7 @@ class Harvest:
     def print(self):
         lines: List[str] = []
 
-        for i, crawler in enumerate(sorted(self.crawlers, key=lambda c: c.name), start=1):
+        for i, crawler in enumerate(sorted(self.usefulCrawlers(), key=lambda c: c.name), start=1):
             if crawler.results:
                 lines.append(f"[{i}] Crawler: '{crawler.name}' ({crawler.runnerCFG.mode}@{crawler.runnerCFG.filename})")
                 numImgs = len(crawler.results)
@@ -109,6 +109,11 @@ class Harvest:
         mailDelivery.prepareCargo()
         mailDelivery.sendCargo()
 
+    def usefulCrawlers(self):
+        result = [c for c in self.crawlers if len(c.results)]
+
+        return result
+
 
 class MailDelivery:
     def __init__(self, harvest: Harvest):
@@ -121,23 +126,34 @@ class MailDelivery:
         self.prepareDelivery(harvest)
 
     def prepareDelivery(self, harvest: Harvest):
-
-        for crawler in sorted(harvest.crawlers, key=lambda c: c.name):
+        for crawler in sorted(harvest.usefulCrawlers(), key=lambda c: c.name):
+            logging.debug(f"Preparing crawler {crawler.name}. Images: {len(crawler.results)}")
             crawlerMessages: List[MailMessage] = []
+            firstMessageForCrawler = False
+
             if not crawler.results:
                 continue
 
             if self.currMessage is None:
                 self.addMessage()
-            crawlerMessages.append(self.currMessage)
+                crawlerMessages.append(self.currMessage)
+                logging.debug(f"Preparing crawler '{crawler.name}' Initial message: {len(crawlerMessages)}")
+                firstMessageForCrawler = True
 
             for image in crawler.results:
 
                 if (self.currMessage.size + image.size()) <= self.mailMaxSize:
                     self.currMessage.addImage(crawler, image)
+                    if not firstMessageForCrawler:
+                        crawlerMessages.append(self.currMessage)
+                        firstMessageForCrawler = True
                 else:
-                    self.addMessage()
-                    crawlerMessages.append(self.currMessage)
+                    # Checks that message is not empty
+                    if (self.currMessage.size != 0):
+                        self.addMessage()
+                        crawlerMessages.append(self.currMessage)
+                        logging.debug(f"Preparing crawler '{crawler.name}' Messages: {len(crawlerMessages)}")
+
                     if (self.currMessage.size + image.size()) > self.mailMaxSize:
                         logging.warning(
                                 f"Image size ({image.size()}) exceeds maximum allowed limit ({self.mailMaxSize}). "
@@ -145,6 +161,8 @@ class MailDelivery:
                                 f"anyway but it may not reach destination")
                     self.currMessage.addImage(crawler, image)
 
+            logging.debug(
+                f"Labelling bundles for crawler '{crawler.name}'. {len(crawlerMessages)} Messages: {crawlerMessages}")
             for bid, msg in enumerate(crawlerMessages, start=1):
                 msg.bundles[crawler.name].setId(bid)
                 msg.bundles[crawler.name].setCnt(len(crawlerMessages))

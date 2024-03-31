@@ -1,3 +1,4 @@
+import logging
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Dict, List
@@ -24,22 +25,30 @@ class MailBundle:
         result = f"Bundle: name: '{self.name}' {seqStr} size: {self.size} #imgs: {len(self.images)}"
         return result
 
+    __repr__ = __str__
+
     def len(self):
         return len(self.images)
 
     def setId(self, bid: int = 0):
+        logging.debug(f"[{self}] Set Id: {bid}")
         self.bid = bid
 
     def setCnt(self, cnt: int = 0):
+        logging.debug(f"[{self}] Set Cnt: {cnt}")
         self.bcnt = cnt
 
     def addImage(self, image: ComicPage):
         self.images.append(image)
         self.size += image.size()
 
-    def print(self, indent=2):
+    def print(self, indent=2, j=0, cnt=0):
         result = []
-        result.append(((indent) * " ") + f"[{self.bid}/{self.bcnt}] {self}")
+        if j == 0:
+            j = self.bid
+        if cnt == 0:
+            cnt = self.bcnt
+        result.append(((indent) * " ") + f"[{j}/{cnt}] {self}")
         for k, image in enumerate(self.images, start=1):
             result.append((indent + 3) * " " + f"[{k}] {image}")
         return "\n".join(result)
@@ -76,6 +85,8 @@ class MailMessage:
         result = f"Message: [{self.mid}] size: {self.size} #bundles: {len(self.bundles)} bundles: [{bundleStr}]"
         return result
 
+    __repr__ = __str__
+
     def len(self):
         return len(self.bundles)
 
@@ -85,10 +96,12 @@ class MailMessage:
     def addImage(self, crawler: Crawler, image: ComicPage):
         cName = crawler.name
         if cName not in self.bundles:
+            logging.debug((f"[{self}] Added crawler '{cName}'"))
             self.bundles[cName] = MailBundle(crawler)
 
         self.bundles[cName].addImage(image)
         self.size += image.size()
+        logging.debug(f"[{self}] Image added")
 
     def print(self, i, indent=0):
         result = []
@@ -96,7 +109,7 @@ class MailMessage:
 
         for j, bundleN in enumerate(sorted(self.bundles), start=1):
             bundle = self.bundles[bundleN]
-            result.append(bundle.print(indent + 3))
+            result.append(bundle.print(indent=indent + 3, j=j, cnt=len(self.bundles)))
 
         return "\n".join(result)
 

@@ -19,9 +19,16 @@ class Crawler:
         self.name = self.runnerCFG.name
         self.state = CrawlerState(self.name, self.globalCFG.stateD()).load()
         self.module = self.RunnerModule(self.runnerCFG.module)
-        self.obj: ComicPage = self.module.Page(URL=self.state.lastURL,**dict(self.runnerCFG.data['RUNNER']))
+        self.obj: ComicPage = self.module.Page(URL=self.state.lastURL, **dict(self.runnerCFG.data['RUNNER']))
         self.key: str = self.obj.key
         self.results = list()
+
+    def __str__(self):
+        result = (f"[Crawler: '{self.name}' [{self.key},{self.runnerCFG.module},{self.runnerCFG.mode}] Results: "
+                  f"{len(self.results)}")
+        return result
+
+    __repr__ = __str__
 
     def RunnerModule(self, moduleName: str, classLocation: str = "libs.Cosecha.Sites"):
         fullModName = f"{classLocation}.{moduleName}"
@@ -45,20 +52,22 @@ class Crawler:
             raise TypeError(f"Unknown mode '{self.runnerCFG.mode}'")
 
     def crawl(self):
-        logging.info(f"Runner: '{self.name}' Crawling")
-        remainingImgs = self.runnerCFG.batchSize
+        remainingImgs = min(self.runnerCFG.batchSize, self.globalCFG.maxBatchSize)
+        logging.debug(f"Crawler '{self.name}: batchSize: from global {self.globalCFG.maxBatchSize} from conf "
+                      f"{self.runnerCFG.batchSize} -> {remainingImgs}")
+        logging.info(f"Runner: '{self.name}'[{self.runnerCFG.module}] Crawling")
         while remainingImgs > 0:
             try:
                 if self.state.lastURL is None:
                     self.obj.downloadPage()
                     initialLink = self.runnerCFG.initial.lower()
                     if (initialLink == '*first'):
-                        self.obj = self.module.Page(key=self.key,URL=self.obj.linkFirst)
+                        self.obj = self.module.Page(key=self.key, URL=self.obj.linkFirst)
                     elif (initialLink == '*last'):
                         # We are already on last edited picture
                         pass
                     elif validators.url(self.runnerCFG.initial):
-                        self.obj = self.module.Page(key=self.key,URL=self.runnerCFG.initial)
+                        self.obj = self.module.Page(key=self.key, URL=self.runnerCFG.initial)
                     else:
                         raise ValueError(f"Runner: '{self.name}' {self.runnerCFG.filename}:Unknown initial value:'"
                                          f"{self.runnerCFG.initial}'")
@@ -78,7 +87,7 @@ class Crawler:
                 break
 
     def poll(self):
-        logging.info(f"'{self.name}' Polling")
+        logging.info(f"Runner: '{self.name}'[{self.runnerCFG.module}] Polling")
         try:
             self.obj.downloadPage()
             if not self.obj.exists(self.globalCFG.imagesD(), self.globalCFG.metadataD()):
@@ -89,7 +98,7 @@ class Crawler:
                 logging.debug(f"'{self.name}': already downloaded")
         except Exception as exc:
             logging.error(f"Crawler(poll)'{self.name}': problem:{type(exc)} {exc}")
-            logging.exception(exc,stack_info=True)
+            logging.exception(exc, stack_info=True)
 
 
 class CrawlerState:
