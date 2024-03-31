@@ -1,19 +1,21 @@
 import re
 from os import path
 from time import strftime, struct_time
-from typing import List, Optional
+from typing import Optional
 from urllib.parse import urljoin
 
 import bs4
 
 from libs.Cosecha.ComicPage import ComicPage
-from libs.Utils.Misc import datePub2Id, stripPubDate
-from libs.Utils.Web import DownloadPage, findObjectsWithAttributes, MergeURL
+from libs.Utils.Misc import datePub2Id
+from libs.Utils.Web import DownloadPage, findObjectsWithAttributes
 
 URLBASE = 'https://www.gocomics.com'
 
 
 class Page(ComicPage):
+    DATEFORMAT = '%Y-%m-%d'
+    IDFROMDATE = '%Y%m%d'
 
     def __init__(self, **kwargs):
         auxKey = kwargs.get('key', None)
@@ -48,7 +50,8 @@ class Page(ComicPage):
         metadata = findMetadata(pagBase.data)
         self.info.update(metadata)
         self.comicDate = metadata['datePublished']
-        self.comicId = self.info['id'] = datePub2Id(self.comicDate, '%Y-%m-%d', '%Y%m%d')
+
+        self.comicId = self.info['id'] = datePub2Id(self.comicDate, self.DATEFORMAT, self.IDFROMDATE)
         self.mediaURL = self.info['mediaURL']
         self.info['about'] = re.sub(r' \| GoComics.com', r'', self.info['about']).strip()
 
@@ -60,14 +63,8 @@ class Page(ComicPage):
         # Will do if need arises
         pass
 
-    def sharedPath(self) -> List[str]:
-        year, _, _, _, _, _ = stripPubDate(self.comicDate, '%Y-%m-%d')
-        pathList = [self.key, year]
-
-        return pathList
-
-    dataPath = sharedPath
-    metadataPath = sharedPath
+    dataPath = ComicPage.sharedPathWithDate
+    metadataPath = ComicPage.sharedPathWithDate
 
     def dataFilename(self):
         ext = self.fileExtension()
@@ -114,8 +111,8 @@ def buildURL(key: str, dateOpt: Optional[struct_time] = None):
 
 def findMetadata(webContent: bs4.BeautifulSoup):
     targetInfo = [('url', 'property', "og:url"), ('title', 'name', "twitter:description"),
-            ('author', 'property', "article:author"), ('datePublished', 'property', "article:published_time"),
-            ('mediaURL', 'property', "og:image"), ('about', 'name', "twitter:title"), ]
+                  ('author', 'property', "article:author"), ('datePublished', 'property', "article:published_time"),
+                  ('mediaURL', 'property', "og:image"), ('about', 'name', "twitter:title"), ]
     result = dict()
 
     interestingMetas = findObjectsWithAttributes(webContent.find('head'), 'meta', targetInfo)
@@ -130,7 +127,7 @@ def findComicLinks(webContent: bs4.BeautifulSoup, here: Optional[str] = None):
     result = dict()
 
     targetInfo = [('last', 'class', "fa-forward"), ('next', 'class', "fa-caret-right"),
-            ('prev', 'class', "fa-caret-left"), ('first', 'class', "fa-backward"), ]
+                  ('prev', 'class', "fa-caret-left"), ('first', 'class', "fa-backward"), ]
 
     auxButtons = findObjectsWithAttributes(webContent, 'a', targetInfo)
 
@@ -139,6 +136,5 @@ def findComicLinks(webContent: bs4.BeautifulSoup, here: Optional[str] = None):
         result[label] = destLink
 
     return result
-
 
 ###############################

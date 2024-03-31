@@ -7,11 +7,12 @@ from os import makedirs, path
 from time import gmtime, strftime, struct_time
 from typing import Dict, List, Optional
 from urllib.parse import urlsplit
-import validators
 
 import magic
+import validators
 
 from libs.Utils.Files import extensionFromType, loadYAML, saveYAML, shaData, shaFile
+from libs.Utils.Misc import stripPubDate
 from libs.Utils.Web import DownloadRawPage
 
 logger = logging.getLogger()
@@ -19,11 +20,11 @@ logger = logging.getLogger()
 
 class ComicPage(metaclass=ABCMeta):
 
-    def __init__(self,**kwargs):
-        auxKey = kwargs.get('key',None)
+    def __init__(self, **kwargs):
+        auxKey = kwargs.get('key', None)
         if not auxKey:
             raise KeyError("Missing key parameter")
-        auxURL = kwargs.get('URL',None)
+        auxURL = kwargs.get('URL', None)
         if not auxURL or not validators.url(auxURL):
             raise KeyError(f"Missing or invalid URL parameter {auxURL}")
 
@@ -119,12 +120,28 @@ class ComicPage(metaclass=ABCMeta):
         raise NotImplementedError
 
     def sharedPath(self) -> List[str]:
+        """
+        Produces a path for files
+        :return: a list with elements that will be added to the path to store elements (metadata & images for now)
+        """
         pathList = [self.key]
 
         return pathList
 
     dataPath = sharedPath
     metadataPath = sharedPath
+
+    def sharedPathWithDate(self) -> List[str]:
+        """
+        Produces a path for files that takes into account the date (year, actually) of publication.
+        This prevents a lot of files storing in the same dir
+        IMPORTANT: Field DATEFORMAT must be defined in the class or an exception will raise
+        :return: a list with elements that will be added to the path to store elements (metadata & images for now)
+        """
+        year, _, _, _, _, _ = stripPubDate(self.comicDate, self.DATEFORMAT)
+        pathList = [self.key, year]
+
+        return pathList
 
     def saveFiles(self, imgFolder: str, metadataFolder: str):
         if self.data is None:
@@ -163,7 +180,8 @@ class ComicPage(metaclass=ABCMeta):
             expectedPath = path.dirname(metadata['fullFilename'])
             if path.realpath(expectedPath) != path.realpath(dataPath):
                 logging.warning(
-                    f"File {metadata['fullFilename']} location {expectedPath} is not where it was expected {dataPath}")
+                        f"File {metadata['fullFilename']} location {expectedPath} is not where it was expected "
+                        f"{dataPath}")
             return result
         elif 'filename' in metadata and path.exists(path.join(dataPath, metadata['filename'])):  # Id
             wrkFileName = path.join(dataPath, metadata['filename'])
@@ -173,7 +191,8 @@ class ComicPage(metaclass=ABCMeta):
             dataFilename = self.dataFilename()
             if not dataFilename:
                 logging.warning(
-                    f"{self.key}: Unable to calculate comic filename for '{self.comicId}' with existing information")
+                        f"{self.key}: Unable to calculate comic filename for '{self.comicId}' with existing "
+                        f"information")
                 return False
         fullFilename = path.join(dataPath, self.dataFilename())
 
