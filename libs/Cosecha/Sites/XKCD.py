@@ -31,7 +31,7 @@ class Page(ComicPage):
         pagBase = DownloadPage(self.URL)
         metas = findInterestingMetas(pagBase.data)
         self.info['title'] = metas['title']
-        self.info['url'] = metas['url']
+        self.URL = self.info['url'] = metas['url']
         self.comicId = self.info['id'] = extractId(metas['url'])
 
         links = findComicLinks(pagBase.data, here=self.URL, thisPage=self.info.get('url', None))
