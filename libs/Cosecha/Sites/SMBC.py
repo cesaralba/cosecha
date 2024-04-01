@@ -36,9 +36,9 @@ class Page(ComicPage):
         self.timestamp = pagBase.timestamp
         metadata = findMetadataStruct(pagBase.data)
 
-        for k in ['url', 'author', 'publisher', 'about', 'image', 'datePublished']:
+        for k in ['url', 'author', 'publisher', 'about', 'image', 'datePublished','name']:
             self.info[k] = metadata[k]
-        self.info['title'] = metadata['name'].lstrip('Saturday Morning Breakfast Cereal - ')
+        self.info['title'] = re.sub(r'^Saturday Morning Breakfast Cereal -',r'',metadata['name']).strip()
         self.URL = metadata['url']
         self.mediaURL = metadata['image']
         self.comicDate = metadata['datePublished']
