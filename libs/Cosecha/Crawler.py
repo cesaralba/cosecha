@@ -61,11 +61,12 @@ class Crawler:
                 if self.state.lastURL is None:
                     self.obj.downloadPage()
                     initialLink = self.runnerCFG.initial.lower()
-                    if (initialLink == '*first'):
+                    if initialLink == '*first':
                         self.obj = self.module.Page(key=self.key, URL=self.obj.linkFirst)
-                    elif (initialLink == '*last'):
-                        # We are already on last edited picture
-                        pass
+                    elif initialLink == '*last':
+                        # We should already be on last edited picture but just in case
+                        if self.obj.linkLast and self.obj.linkLast != self.obj.URL:
+                            self.obj = self.module.Page(key=self.key, URL=self.obj.linkLast)
                     elif validators.url(self.runnerCFG.initial):
                         self.obj = self.module.Page(key=self.key, URL=self.runnerCFG.initial)
                     else:
@@ -80,7 +81,10 @@ class Crawler:
                     self.state.update(self.obj)
                 else:
                     logging.debug(f"'{self.name}' {self.obj.URL}: already downloaded")
-                self.obj = self.module.Page(key=self.key, URL=self.obj.linkNext)
+                if self.obj.linkNext and self.obj.linkNext != self.obj.URL:
+                    self.obj = self.module.Page(key=self.key, URL=self.obj.linkNext)
+                else:
+                    break
             except Exception as exc:
                 logging.error(f"Crawler(crawl)'{self.name}': problem:{type(exc)} {exc}")
                 logging.exception(exc, stack_info=True)
@@ -90,6 +94,14 @@ class Crawler:
         logging.info(f"Runner: '{self.name}'[{self.runnerCFG.module}] Polling")
         try:
             self.obj.downloadPage()
+            logging.debug(f"'{self.name}': downloading new image {self.obj.URL} -> {self.obj.mediaURL}")
+            if self.obj.linkLast and self.obj.linkLast != self.obj.URL:
+                self.obj = self.module.Page(key=self.key, URL=self.obj.linkLast)
+                self.obj.downloadPage()
+            elif self.obj.linkNext and self.obj.linkNext != self.obj.URL:
+                while (self.obj.linkNext and self.obj.linkNext != self.obj.URL):
+                    self.obj = self.module.Page(key=self.key, URL=self.obj.linkNext)
+                    self.obj.downloadPage()
             if not self.obj.exists(self.globalCFG.imagesD(), self.globalCFG.metadataD()):
                 logging.debug(f"'{self.name}': downloading new image {self.obj.URL} -> {self.obj.mediaURL}")
                 self.obj.downloadMedia()
