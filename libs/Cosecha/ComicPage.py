@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 import magic
 import validators
 
+from libs.Cosecha.Config import TIMESTAMPFORMAT
 from libs.Utils.Files import extensionFromType, loadYAML, saveYAML, shaData, shaFile
 from libs.Utils.Misc import stripPubDate
 from libs.Utils.Web import DownloadRawPage
@@ -77,7 +78,7 @@ class ComicPage(metaclass=ABCMeta):
             raise ValueError(f"Unable to find media {self.URL}")
 
         img = DownloadRawPage(self.mediaURL, here=self.URL, allow_redirects=True)
-        self.timestamp = self.info['timestamp'] = strftime("%Y%m%d-%H%M%S %z", img.timestamp)
+        self.timestamp = self.info['timestamp'] = strftime(TIMESTAMPFORMAT, img.timestamp)
         self.data = img.data
         self.info['mediaURL'] = self.mediaURL = img.source
         self.info['mediaHash'] = self.mediaHash = shaData(img.data)
@@ -179,9 +180,8 @@ class ComicPage(metaclass=ABCMeta):
             result = shaFile(metadata['fullFilename']) == metadata.get('mediaHash')
             expectedPath = path.dirname(metadata['fullFilename'])
             if path.realpath(expectedPath) != path.realpath(dataPath):
-                logging.warning(
-                        f"File {metadata['fullFilename']} location {expectedPath} is not where it was expected "
-                        f"{dataPath}")
+                logging.warning(f"File {metadata['fullFilename']} location {expectedPath} is not where it was expected "
+                                f"{dataPath}")
             return result
         elif 'filename' in metadata and path.exists(path.join(dataPath, metadata['filename'])):  # Id
             wrkFileName = path.join(dataPath, metadata['filename'])
@@ -190,9 +190,8 @@ class ComicPage(metaclass=ABCMeta):
         else:  # We have to compose name
             dataFilename = self.dataFilename()
             if not dataFilename:
-                logging.warning(
-                        f"{self.key}: Unable to calculate comic filename for '{self.comicId}' with existing "
-                        f"information")
+                logging.warning(f"{self.key}: Unable to calculate comic filename for '{self.comicId}' with existing "
+                                f"information")
                 return False
         fullFilename = path.join(dataPath, self.dataFilename())
 

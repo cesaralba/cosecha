@@ -2,10 +2,10 @@ import logging
 import smtplib
 import sys
 from email.mime.multipart import MIMEMultipart
-from time import gmtime, strftime
+from time import gmtime, localtime, strftime
 from typing import List, Optional
 
-from .Config import globalConfig, runnerConfig
+from .Config import globalConfig, GMTIMEFORMATFORMAIL, runnerConfig
 from .Crawler import Crawler
 from .Mail import MailMessage
 
@@ -39,7 +39,7 @@ class Harvest:
         Creates Crawler objects from configuration files
         :return:
         """
-
+        execTime = localtime()
         if not self.globalCFG.runnersData:
             raise EnvironmentError(
                     f"No configuration files found for runners. HomeDir: {self.globalCFG.homeDirectory()} Glob for "
@@ -54,9 +54,15 @@ class Harvest:
 
             cfgData = dictRunners[runner]
             if not (self.ignoreEnabled or cfgData.enabled):
+                logging.debug(f"Crawler '{newCrawler.name}' skipped as it is not enabled")
                 continue
+
             try:
                 newCrawler = Crawler(runnerCFG=cfgData, globalCFG=self.globalCFG)
+                if not (self.globalCFG.ignorePollInterval or newCrawler.checkPollSlot(execTime)):
+                    logging.debug(f"Crawler '{newCrawler.name}' skipped as file was obtained on same period "
+                                  f"{newCrawler.state.lastUpdated}")
+                    continue
                 self.crawlers.append(newCrawler)
                 logging.debug(f"Created Crawler '{newCrawler.name}'")
             except Exception as exc:
@@ -121,7 +127,7 @@ class MailDelivery:
         self.mailMaxSize = harvest.globalCFG.mailCFG.mailMaxSize
         self.messages: List[MailMessage] = []
         self.currMessage: Optional[MailMessage] = None
-        self.timestamp = strftime("%Y/%m/%d-%H:%M %z", gmtime())
+        self.timestamp = strftime(GMTIMEFORMATFORMAIL, gmtime())
         self.cargo: List[MIMEMultipart] = []
         self.prepareDelivery(harvest)
 
@@ -161,8 +167,8 @@ class MailDelivery:
                                 f"anyway but it may not reach destination")
                     self.currMessage.addImage(crawler, image)
 
-            logging.debug(
-                f"Labelling bundles for crawler '{crawler.name}'. {len(crawlerMessages)} Messages: {crawlerMessages}")
+            logging.debug(f"Labelling bundles for crawler '{crawler.name}'. {len(crawlerMessages)} Messages: "
+                          f"{crawlerMessages}")
             for bid, msg in enumerate(crawlerMessages, start=1):
                 msg.bundles[crawler.name].setId(bid)
                 msg.bundles[crawler.name].setCnt(len(crawlerMessages))
