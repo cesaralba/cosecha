@@ -15,9 +15,14 @@ RUNNERFILEEXTENSION = "conf"
 RUNNERVALIDMODES = {'poll', 'crawler'}
 RUNNERVALIDINITIALS = {'*first', '*last'}
 RUNNERBATCHMODES = {'crawler'}
+RUNNERVALIDPOLLINTERVALS = {'none', 'daily', 'weekly', 'biweekly', 'monthly', 'bimonthly', 'quarterly'}
 
 DEFAULTRUNNERMODE = "poll"
 DEFAULTRUNNERBATCHSIZE = 7
+DEFAULTPOLLINTERVAL = 'daily'
+
+GMTIMEFORMATFORMAIL = "%Y/%m/%d-%H:%M %z"
+TIMESTAMPFORMAT = "%Y%m%d-%H%M%S %z"
 
 
 @dataclass
@@ -62,6 +67,7 @@ class runnerConfig:
     mode: str = DEFAULTRUNNERMODE
     initial: Optional[str] = '*last'
     batchSize: int = DEFAULTRUNNERBATCHSIZE
+    pollInterval: Optional[str] = DEFAULTPOLLINTERVAL
 
     def __post_init__(self):
         if not isinstance(self.batchSize, int):
@@ -88,6 +94,10 @@ class runnerConfig:
         if (self.mode in RUNNERBATCHMODES) and (self.batchSize <= 0):
             problems.append(f"{self.__class__}:{self.filename} 'batchSize' value '{self.batchSize}' "
                             f"must be a positive integer for mode '{self.mode}'.")
+        if not ((self.pollInterval is None) or (self.pollInterval.lower() in RUNNERVALIDPOLLINTERVALS)):
+            problems.append(f"Provided mode '{self.pollInterval}'not valid. Valid modes are None or any of "
+                            f"{RUNNERVALIDPOLLINTERVALS}")
+
         # TOTHINK: Check module exists?
         for msg in problems:
             logging.error(msg)
@@ -130,10 +140,12 @@ class globalConfig:
     dryRun: bool = False
     dontSendEmails: bool = False
     dontSave: bool = False
+    ignorePollInterval: bool = False
     mailCFG: Optional[mailConfig] = None
     runnersData: List[runnerConfig] = field(default_factory=list)
     requiredRunners: List[str] = field(default_factory=list)
     maxBatchSize: int = 7
+    defaultPollInterval: Optional[str] = DEFAULTPOLLINTERVAL
 
     @classmethod
     def createFromArgs(cls, args: Namespace):
@@ -201,9 +213,11 @@ class globalConfig:
 
         parser.add_argument('-n', '--dry-run', dest='dryRun', action="store_true", env_var='CS_DRYRUN',
                             help="Don't save or send emails", required=False)
-        parser.add_argument('--no-emails', dest='dontSendEmails', action="store_true", env_var='CS_DRYRUN',
+        parser.add_argument('--ignore-poll-interval', dest='ignorePollInterval', action="store_true",
+                            env_var='CS_NOSAVE', help="Don't check poll intervals", required=False)
+        parser.add_argument('--no-emails', dest='dontSendEmails', action="store_true", env_var='CS_NOEMAILS',
                             help="Don't send emails", required=False)
-        parser.add_argument('--no-save', dest='dontSave', action="store_true", env_var='CS_DRYRUN',
+        parser.add_argument('--no-save', dest='dontSave', action="store_true", env_var='CS_NOSAVE',
                             help="Don't save images", required=False)
 
         parser.add_argument('-x', '--maxBatchSize', dest='maxBatchSize', type=int,
