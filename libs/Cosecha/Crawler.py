@@ -162,17 +162,17 @@ class CrawlerState:
     stateElements = {'lastId': 'str', 'lastUpdated': 'timestamp', 'lastURL': 'str', 'lastMedia': 'str'}
 
     def __init__(self, runnerName: str, storePath: str):
-        self.runner = runnerName
+        self.runnerName = runnerName
         self.storePath = storePath
         self.lastId = None
         self.lastUpdated = None
         self.lastURL = None
-        self.lastMedia = None
+        self.lastMediaURL = None
         self.media = dict()
         self.lastPoll: Optional[struct_time] = None
 
     def fullFilename(self):
-        result = f"{self.runner}.state"
+        result = f"{self.runnerName}.state"
         return result
 
     def completePath(self):
@@ -184,7 +184,7 @@ class CrawlerState:
         self.lastId = state.comicId
         self.lastUpdated = state.info['timestamp']
         self.lastURL = state.URL
-        self.lastMedia = state.mediaURL
+        self.lastMediaURL = state.mediaURL
 
     def load(self):
         try:
