@@ -17,10 +17,10 @@ from ..Utils.Python import RunnerModule
 
 class Crawler:
     def __init__(self, runnerCFG: runnerConfig, globalCFG: globalConfig):
-        self.runnerCFG = runnerCFG
-        self.globalCFG = globalCFG
+        self.runnerCFG:runnerConfig = runnerCFG
+        self.globalCFG:globalConfig = globalCFG
         self.name = self.runnerCFG.name
-        self.state = CrawlerState(self.name, self.globalCFG.stateD()).load()
+        self.state:CrawlerState = CrawlerState(self.name, self.globalCFG.stateD()).load()
         self.module = RunnerModule(self.runnerCFG.module)
         self.obj: ComicPage = self.module.Page(URL=self.state.lastURL, **dict(self.runnerCFG.data['RUNNER']))
         self.key: str = self.obj.key
