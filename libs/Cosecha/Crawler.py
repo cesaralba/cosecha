@@ -1,8 +1,6 @@
 import logging
-import sys
 from calendar import timegm
 from datetime import datetime
-from importlib import import_module
 from io import UnsupportedOperation
 from os import makedirs
 from time import localtime, mktime, strptime, struct_time
@@ -14,6 +12,7 @@ from libs.Utils.Files import loadYAML, saveYAML
 from libs.Utils.Misc import createPath
 from .ComicPage import ComicPage
 from .Config import globalConfig, runnerConfig, RUNNERVALIDPOLLINTERVALS, TIMESTAMPFORMAT
+from ..Utils.Python import RunnerModule
 
 
 class Crawler:
@@ -22,7 +21,7 @@ class Crawler:
         self.globalCFG = globalCFG
         self.name = self.runnerCFG.name
         self.state = CrawlerState(self.name, self.globalCFG.stateD()).load()
-        self.module = self.RunnerModule(self.runnerCFG.module)
+        self.module = RunnerModule(self.runnerCFG.module)
         self.obj: ComicPage = self.module.Page(URL=self.state.lastURL, **dict(self.runnerCFG.data['RUNNER']))
         self.key: str = self.obj.key
         self.results = list()
@@ -37,14 +36,6 @@ class Crawler:
         return result
 
     __repr__ = __str__
-
-    def RunnerModule(self, moduleName: str, classLocation: str = "libs.Cosecha.Sites"):
-        fullModName = f"{classLocation}.{moduleName}"
-
-        if fullModName not in sys.modules:
-            import_module(fullModName, classLocation)
-
-        return sys.modules[fullModName]
 
     def title(self):
         if self.runnerCFG.title is not None:
@@ -64,9 +55,10 @@ class Crawler:
         logging.debug(f"Crawler '{self.name}: batchSize: from global {self.globalCFG.maxBatchSize} from conf "
                       f"{self.runnerCFG.batchSize} -> {remainingImgs}")
         logging.info(f"Runner: '{self.name}'[{self.runnerCFG.module}] Crawling")
+        downloadedOnce = False
         while remainingImgs > 0:
             try:
-                if self.state.lastURL is None:
+                if (self.state.lastURL is None) and not downloadedOnce:
                     self.obj.downloadPage()
                     initialLink = self.runnerCFG.initial.lower()
                     if initialLink == '*first':
@@ -81,6 +73,7 @@ class Crawler:
                         raise ValueError(f"Runner: '{self.name}' {self.runnerCFG.filename}:Unknown initial value:'"
                                          f"{self.runnerCFG.initial}'")
                 self.obj.downloadPage()
+                downloadedOnce = True
                 if not self.obj.exists(self.globalCFG.imagesD(), self.globalCFG.metadataD()):
                     logging.debug(f"'{self.name}': downloading new image")
                     self.obj.downloadMedia()
@@ -159,7 +152,7 @@ class Crawler:
 
 
 class CrawlerState:
-    stateElements = {'lastId': 'str', 'lastUpdated': 'timestamp', 'lastURL': 'str', 'lastMedia': 'str'}
+    stateElements = {'lastId': 'str', 'lastUpdated': 'timestamp', 'lastURL': 'str', 'lastMediaURL': 'str'}
 
     def __init__(self, runnerName: str, storePath: str):
         self.runnerName = runnerName
