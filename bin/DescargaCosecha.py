@@ -35,10 +35,11 @@ def parse_arguments():
     args = parser.parse_args()
 
     logLevel = logging.WARNING
-    if args.debug:
-        logLevel = logging.DEBUG
-    elif args.verbose:
+    if args.verbose:
         logLevel = logging.INFO
+    elif args.debug:
+        logLevel = logging.DEBUG
+
 
     prepareLogger(logger=logger, level=logLevel)
 

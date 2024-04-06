@@ -21,6 +21,8 @@ DEFAULTRUNNERMODE = "poll"
 DEFAULTRUNNERBATCHSIZE = 7
 DEFAULTPOLLINTERVAL = 'daily'
 
+STOREVALIDBACKENDS = {'Pony','None'}
+
 GMTIMEFORMATFORMAIL = "%Y/%m/%d-%H:%M %z"
 TIMESTAMPFORMAT = "%Y%m%d-%H%M%S %z"
 
@@ -28,10 +30,15 @@ TIMESTAMPFORMAT = "%Y%m%d-%H%M%S %z"
 class storeConfig:
     backend: str
     backendData: Optional[dict] = None
+    verbose:bool = False
+    filename: Optional[str] = None
+    parser: Optional[ConfigParser] = None
 
     @classmethod
     def createFromParse(cls, parser: ConfigParser, filename: str):
         auxData = dict()
+        auxData['filename'] = filename
+        auxData['parser'] = parser
 
         auxData.update(mergeConfFileIntoDataClass(cls, parser, 'STORE'))
 
@@ -44,6 +51,9 @@ class storeConfig:
             logging.error(f"{filename}: missing required fields: {missingKeys}")
             raise KeyError(f"{filename}: missing required fields: {missingKeys}")
 
+        if auxData.get('backend',None).lower() == 'none':
+            return None
+
         if 'DB' not in parser:
             logging.error(f"{filename}: Backend requested {auxData['backend']} but no 'DB' section provided")
             raise ValueError(f"{filename}: Backend requested {auxData['backend']} but no 'DB' section provided")
@@ -54,7 +64,21 @@ class storeConfig:
 
         return result
 
-    pass
+    def __post_init__(self):
+        if not self.check():
+            raise ValueError(f"storeConfig: '{self.filename}' provided configuration for STORE is not valid")
+
+    def check(self):
+        problems = list()
+
+        if self.backend not in STOREVALIDBACKENDS:
+            problems.append(f"{self.filename}: Backend '{self.backend}' unknown. Known ones are {STOREVALIDBACKENDS}")
+
+        for msg in problems:
+            logging.error(msg)
+
+        return len(problems) == 0
+
 
 @dataclass
 class mailConfig:
@@ -133,7 +157,7 @@ class runnerConfig:
         for msg in problems:
             logging.error(msg)
 
-        return (len(problems) == 0)
+        return len(problems) == 0
 
     @classmethod
     def createFromFile(cls, filename: str):
@@ -179,6 +203,7 @@ class globalConfig:
     defaultPollInterval: Optional[str] = DEFAULTPOLLINTERVAL
     storeCFG:Optional[storeConfig] = None
     storeFiles:bool = True
+    verbose:bool = False
 
     @classmethod
     def createFromArgs(cls, args: Namespace):
@@ -218,6 +243,9 @@ class globalConfig:
             raise KeyError(f"{args.config}: missing required fields: {missingKeys}")
 
         result = cls(**auxData)
+
+        if args.debug:
+            result.verbose = True
 
         result.runnersData = readRunnerConfigs(result.runnersCFG, result.homeDirectory())
 

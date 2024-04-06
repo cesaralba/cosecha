@@ -12,7 +12,7 @@ from libs.Utils.Files import loadYAML, saveYAML
 from libs.Utils.Misc import createPath
 from .ComicPage import ComicPage
 from .Config import globalConfig, runnerConfig, RUNNERVALIDPOLLINTERVALS, TIMESTAMPFORMAT
-from ..Utils.Python import RunnerModule
+from ..Utils.Python import LoadModule
 
 
 class Crawler:
@@ -21,13 +21,13 @@ class Crawler:
         self.globalCFG:globalConfig = globalCFG
         self.name = self.runnerCFG.name
         self.state:CrawlerState = CrawlerState(self.name, self.globalCFG.stateD()).load()
-        self.module = RunnerModule(self.runnerCFG.module)
+        self.module = LoadModule(moduleName=self.runnerCFG.module,classLocation="libs.Cosecha.Sites")
         self.obj: ComicPage = self.module.Page(URL=self.state.lastURL, **dict(self.runnerCFG.data['RUNNER']))
         self.key: str = self.obj.key
         self.results = list()
 
         if self.state.lastUpdated is None:
-            # Either it is a new Crawler (ever) or it hasn't downloaded anything. It does not matter the poll interval
+            # Either it is a new Crawler (ever) or it hasn't downloaded anything, it does not matter the poll interval
             self.runnerCFG.pollInterval = None
 
     def __str__(self):

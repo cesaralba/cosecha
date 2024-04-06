@@ -234,4 +234,4 @@ class ComicPage(metaclass=ABCMeta):
 
         return part
 
-    # TODO: updateDB  # TODO: mailContent
+    # TODO: updateDB
