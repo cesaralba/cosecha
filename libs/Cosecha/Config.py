@@ -24,6 +24,37 @@ DEFAULTPOLLINTERVAL = 'daily'
 GMTIMEFORMATFORMAIL = "%Y/%m/%d-%H:%M %z"
 TIMESTAMPFORMAT = "%Y%m%d-%H%M%S %z"
 
+@dataclass
+class storeConfig:
+    backend: str
+    backendData: Optional[dict] = None
+
+    @classmethod
+    def createFromParse(cls, parser: ConfigParser, filename: str):
+        auxData = dict()
+
+        auxData.update(mergeConfFileIntoDataClass(cls, parser, 'STORE'))
+
+        fileKeys = set(auxData.keys())
+        requiredClassFields = {k for k, v in cls.__dataclass_fields__.items() if
+                               not isinstance(v.default, (type(None), str, bool, int))}
+        missingKeys = requiredClassFields.difference(fileKeys)
+
+        if (missingKeys):
+            logging.error(f"{filename}: missing required fields: {missingKeys}")
+            raise KeyError(f"{filename}: missing required fields: {missingKeys}")
+
+        if 'DB' not in parser:
+            logging.error(f"{filename}: Backend requested {auxData['backend']} but no 'DB' section provided")
+            raise ValueError(f"{filename}: Backend requested {auxData['backend']} but no 'DB' section provided")
+
+        auxData['backendData'] = {k:v.strip('"').strip("'") for k,v in dict(parser['DB']).items()}
+
+        result = cls(**auxData)
+
+        return result
+
+    pass
 
 @dataclass
 class mailConfig:
@@ -146,6 +177,8 @@ class globalConfig:
     requiredRunners: List[str] = field(default_factory=list)
     maxBatchSize: int = 7
     defaultPollInterval: Optional[str] = DEFAULTPOLLINTERVAL
+    storeCFG:Optional[storeConfig] = None
+    storeFiles:bool = True
 
     @classmethod
     def createFromArgs(cls, args: Namespace):
@@ -159,7 +192,8 @@ class globalConfig:
 
             auxData.update(mergeConfFileIntoDataClass(cls, parser, "GENERAL"))
 
-            auxData['mailCFG'] = mailConfig.createFromParse(parser, args.config)
+            auxData['mailCFG'] = mailConfig.createFromParse(parser, args.config) if 'MAIL' in parser else None
+            auxData['storeCFG'] = storeConfig.createFromParse(parser, args.config) if 'STORE' in parser else None
 
         if not args.requiredRunners:
             auxData['requiredRunners'] = []
