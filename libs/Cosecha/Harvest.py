@@ -31,7 +31,7 @@ class Harvest:
             if not self.globalCFG.dontSave:
                 self.save()
 
-            if not self.globalCFG.dontSendEmails:
+            if (not self.globalCFG.dontSendEmails) and self.globalCFG.mailCFG:
                 self.email()
 
     def prepare(self):
