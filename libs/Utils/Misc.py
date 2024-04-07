@@ -1,11 +1,10 @@
 import gzip
 import re
 from collections import defaultdict
-from datetime import datetime
 from pathlib import Path
-from time import gmtime
 from typing import Tuple
-
+from datetime import datetime, timezone
+from dateutil import tz
 ####################################################################################################################
 
 FORMATOtimestamp = "%Y-%m-%d %H:%M"
@@ -48,7 +47,7 @@ def ReadFile(filename):
             read_data = handin.read()
             resData = ''.join(read_data)
 
-    return {'source': filename, 'data': resData, 'timestamp': gmtime()}
+    return {'source': filename, 'data': resData, 'timestamp': getUTC()}
 
 
 def CuentaClaves(x):
@@ -207,3 +206,11 @@ def stripPubDate(datePublished: str, formatDatePub: str) -> Tuple[str, str, str,
             '%H'), datePub.strftime('%M'), datePub.strftime('%S')
 
     return result
+
+def getUTC() -> datetime:
+    result = datetime.now(timezone.utc)
+
+    return result
+
+def UTC2local(t:datetime):
+    return t.astimezone(tz.tzlocal())
