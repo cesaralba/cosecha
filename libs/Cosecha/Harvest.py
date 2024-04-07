@@ -7,6 +7,7 @@ from typing import List, Optional
 
 from .Config import globalConfig, GMTIMEFORMATFORMAIL, runnerConfig
 from .Crawler import Crawler
+from .StoreManager import DBStorage
 from .Mail import MailMessage
 
 
@@ -22,6 +23,7 @@ class Harvest:
 
         # Working objects
         self.crawlers: List[Crawler] = []
+        self.dataStore: Optional[DBStorage] = None
 
     def go(self):
         self.prepare()
@@ -40,6 +42,11 @@ class Harvest:
         :return:
         """
         execTime = localtime()
+
+        if self.globalCFG.storeCFG:
+            self.dataStore = DBStorage(globalCFG=self.globalCFG)
+            self.dataStore.prepare()
+
         if not self.globalCFG.runnersData:
             raise EnvironmentError(
                     f"No configuration files found for runners. HomeDir: {self.globalCFG.homeDirectory()} Glob for "
@@ -58,7 +65,7 @@ class Harvest:
                 continue
 
             try:
-                newCrawler = Crawler(runnerCFG=cfgData, globalCFG=self.globalCFG)
+                newCrawler = Crawler(runnerCFG=cfgData, globalCFG=self.globalCFG,dbStore=self.dataStore)
                 if not (self.globalCFG.ignorePollInterval or newCrawler.checkPollSlot(execTime)):
                     logging.debug(f"Crawler '{newCrawler.name}' skipped as file was obtained on same period "
                                   f"{newCrawler.state.lastUpdated}")
@@ -84,7 +91,7 @@ class Harvest:
                 for res in crawler.results:
                     try:
                         res.saveFiles(self.globalCFG.imagesD(), self.globalCFG.metadataD())
-                        crawler.state.update(res)
+                        crawler.state.updateFromImage(res)
                         crawler.state.store()
                         savedFiles.append(res)
                     except Exception as exc:
