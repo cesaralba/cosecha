@@ -25,6 +25,7 @@ STOREVALIDBACKENDS = {'Pony','None'}
 
 GMTIMEFORMATFORMAIL = "%Y/%m/%d-%H:%M %z"
 TIMESTAMPFORMAT = "%Y%m%d-%H%M%S %z"
+TIMESTAMPFORMATORM = "%Y-%m-%d %H:%M:%S%z" #2024-04-04 06:31:07+00:00
 
 @dataclass
 class storeConfig:
@@ -191,6 +192,7 @@ class globalConfig:
     imagesDirectory: str = 'images'
     metadataDirectory: str = 'metadata'
     stateDirectory: str = 'state'
+    databaseDirectory:str = 'db'
     runnersCFG: str = 'etc/runners.d/*.conf'
     dryRun: bool = False
     dontSendEmails: bool = False
@@ -202,7 +204,8 @@ class globalConfig:
     maxBatchSize: int = 7
     defaultPollInterval: Optional[str] = DEFAULTPOLLINTERVAL
     storeCFG:Optional[storeConfig] = None
-    storeFiles:bool = True
+    storeStateFiles:bool = True
+    initializeStoreDB:bool = False
     verbose:bool = False
 
     @classmethod
@@ -269,6 +272,8 @@ class globalConfig:
                             help='Location to store metadata files (supersedes ${CS_DATADIR}/metadata', required=False)
         parser.add_argument('-s', '--stateDir', dest='stateDirectory', type=str, env_var='CS_DESTDIRSTATE',
                             help='Location to store state files (supersedes ${CS_DATADIR}/state', required=False)
+        parser.add_argument('-b', '--stateDatabase', dest='databaseDirectory', type=str, env_var='CS_DESTDIRDB',
+                            help='Location to store database files (supersedes ${CS_DATADIR}/db', required=False)
 
         parser.add_argument('-r', '--runnersGlob', dest='runnersCFG', type=str, env_var='CS_RUNNERSCFG',
                             help='Glob for configuration files of runners', required=False)
@@ -285,6 +290,10 @@ class globalConfig:
         parser.add_argument('-x', '--maxBatchSize', dest='maxBatchSize', type=int,
                             help='Maximum number of images to download for a crawler', required=False)
 
+        parser.add_argument('--initialize-db', dest='initializeStoreDB', action="store_true",
+                            help="Create DB objects", required=False)
+
+
     def homeDirectory(self):
         return os.path.dirname(self.filename) if self.filename else '.'
 
@@ -296,6 +305,9 @@ class globalConfig:
 
     def stateD(self) -> str:
         return path.join(self.saveDirectory, self.stateDirectory)
+
+    def databaseD(self) -> str:
+        return path.join(self.saveDirectory, self.databaseDirectory)
 
     @classmethod
     def createStorePath(cls, field: str):
