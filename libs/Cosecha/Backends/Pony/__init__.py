@@ -12,7 +12,7 @@ VALIDPROVIDERS = {'sqlite'}
 SQLITENONPATHPROVIDERS = {':memory:', ':sharedmemory:'}
 
 session_manager = db_session
-XXXX = commit # To save it from import clean up
+_ = commit # To save it from import clean up
 
 class CosechaStore(DBStorageBackendBase):
     def __init__(self, **kwargs):

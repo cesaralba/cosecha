@@ -39,9 +39,6 @@ class DBStorage:
         self.storeCFG:storeConfig = globalCFG.storeCFG
         self.fullModuleName, self.module = LoadModule(moduleName=self.storeCFG.backend,classLocation="libs.Cosecha.Backends")
         self.obj = self.module.CosechaStore(globalCFG=self.globalCFG)
-        global commit, session_manager
-        commit = self.module.commit
-        session_manager = self.module.db_session
 
     def prepare(self):
         self.obj.connect(initial=self.globalCFG.initializeStoreDB)
