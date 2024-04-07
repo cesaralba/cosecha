@@ -1,14 +1,17 @@
 from os import makedirs, path
 
-from .DBstore import DB
-from .ImageDB import ImageMetadataDB, ChannelStateDB
-from pony.orm import set_sql_debug,db_session, ObjectNotFound
-from libs.Cosecha.StoreManager import DBStorageBackendBase
+from pony.orm import db_session, ObjectNotFound, set_sql_debug
 
-#https://docs.ponyorm.org/api_reference.html#sqlite
+from libs.Cosecha.StoreManager import DBStorageBackendBase
+from .DBstore import DB
+from .ImageDB import ChannelStateDB, ImageMetadataDB
+
+# https://docs.ponyorm.org/api_reference.html#sqlite
 
 VALIDPROVIDERS = {'sqlite'}
 SQLITENONPATHPROVIDERS = {':memory:', ':sharedmemory:'}
+
+session_manager = db_session
 
 
 class CosechaStore(DBStorageBackendBase):
@@ -23,17 +26,17 @@ class CosechaStore(DBStorageBackendBase):
         self.validateBackendData()
 
     def connect(self, **kwargs):
-        initial = kwargs.get('initial',False)
+        initial = kwargs.get('initial', False)
         finalBindParams = self.tunedParamsBind(initial=initial)
 
-        set_sql_debug(self.verbose)
+        set_sql_debug(debug=self.verbose, show_values=self.verbose)
         self.db.bind(**finalBindParams)
-        self.db.generate_mapping(check_tables=True,create_tables=initial)
+        self.db.generate_mapping(check_tables=True, create_tables=initial)
 
     def validateBackendData(self):
         requiredKeys = {'provider'}
         requiredKeysPerProvider = {'sqlite': {'filename'}
-                }
+                                   }
 
         backendData = self.storeCFG.backendData
 
@@ -50,7 +53,7 @@ class CosechaStore(DBStorageBackendBase):
         if missingProvKeys:
             raise KeyError(f"Missing keys: {missingProvKeys}. Required keys: {reqProvKeys}")
 
-    def tunedParamsBind(self, initial: bool = False)->dict:
+    def tunedParamsBind(self, initial: bool = False) -> dict:
 
         backendData = self.storeCFG.backendData
         result = backendData.copy()
@@ -74,7 +77,6 @@ class CosechaStore(DBStorageBackendBase):
 
         return result
 
-    session_manager = db_session
     CrawlerState = ChannelStateDB
     ImageMetadata = ImageMetadataDB
     RowNotFound = ObjectNotFound

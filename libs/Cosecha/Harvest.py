@@ -7,8 +7,10 @@ from typing import List, Optional
 
 from .Config import globalConfig, GMTIMEFORMATFORMAIL, runnerConfig
 from .Crawler import Crawler
-from .StoreManager import DBStorage
 from .Mail import MailMessage
+from .StoreManager import DBStorage
+
+session_manager = None
 
 
 class Harvest:
@@ -26,15 +28,34 @@ class Harvest:
         self.dataStore: Optional[DBStorage] = None
 
     def go(self):
-        self.prepare()
-        self.download()
+        global session_manager
 
-        if not self.globalCFG.dryRun:
-            if not self.globalCFG.dontSave:
-                self.save()
+        if self.globalCFG.storeCFG:
+            self.dataStore = DBStorage(globalCFG=self.globalCFG)
+            self.dataStore.prepare()
+            session_manager = self.dataStore.module.session_manager
 
-            if (not self.globalCFG.dontSendEmails) and self.globalCFG.mailCFG:
-                self.email()
+            with session_manager(immediate=True, optimistic=False, serializable=True, sql_debug=self.globalCFG.verbose,
+                                 show_values=self.globalCFG.verbose):
+                self.prepare()
+                self.download()
+
+                if not self.globalCFG.dryRun:
+                    if not self.globalCFG.dontSave:
+                        self.save()
+
+                    if (not self.globalCFG.dontSendEmails) and self.globalCFG.mailCFG:
+                        self.email()
+        else:
+            self.prepare()
+            self.download()
+
+            if not self.globalCFG.dryRun:
+                if not self.globalCFG.dontSave:
+                    self.save()
+
+                if (not self.globalCFG.dontSendEmails) and self.globalCFG.mailCFG:
+                    self.email()
 
     def prepare(self):
         """
@@ -42,10 +63,6 @@ class Harvest:
         :return:
         """
         execTime = localtime()
-
-        if self.globalCFG.storeCFG:
-            self.dataStore = DBStorage(globalCFG=self.globalCFG)
-            self.dataStore.prepare()
 
         if not self.globalCFG.runnersData:
             raise EnvironmentError(
@@ -65,7 +82,7 @@ class Harvest:
                 continue
 
             try:
-                newCrawler = Crawler(runnerCFG=cfgData, globalCFG=self.globalCFG,dbStore=self.dataStore)
+                newCrawler = Crawler(runnerCFG=cfgData, globalCFG=self.globalCFG, dbStore=self.dataStore)
                 if not (self.globalCFG.ignorePollInterval or newCrawler.checkPollSlot(execTime)):
                     logging.debug(f"Crawler '{newCrawler.name}' skipped as file was obtained on same period "
                                   f"{newCrawler.state.lastUpdated}")
@@ -85,6 +102,8 @@ class Harvest:
             crawler.go()
 
     def save(self):
+        if (self.globalCFG.dryRun or self.globalCFG.dontSave):
+            return
         for crawler in self.usefulCrawlers():
             savedFiles = []
             if crawler.results:
@@ -96,6 +115,7 @@ class Harvest:
                         savedFiles.append(res)
                     except Exception as exc:
                         logging.error(f"Crawler '{crawler.name}': problem saving results:{type(exc)} {exc}")
+                        logging.exception(exc, exc_info=True)
                         break
                 if len(savedFiles) != len(crawler.results):
                     crawler.results = savedFiles

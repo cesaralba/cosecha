@@ -5,7 +5,6 @@ from datetime import datetime
 from email.mime.image import MIMEImage
 from email.utils import make_msgid
 from os import makedirs, path
-from time import strftime
 from typing import Dict, List, Optional
 from urllib.parse import urlsplit
 
@@ -80,7 +79,7 @@ class ComicPage(metaclass=ABCMeta):
 
         img = DownloadRawPage(self.mediaURL, here=self.URL, allow_redirects=True)
         self.timestamp = img.timestamp
-        self.info['timestamp'] = strftime(TIMESTAMPFORMAT, img.timestamp)
+        self.info['timestamp'] = img.timestamp.strftime(TIMESTAMPFORMAT)
         self.data = img.data
         self.info['mediaURL'] = self.mediaURL = img.source
         self.info['mediaHash'] = self.mediaHash = shaData(img.data)
