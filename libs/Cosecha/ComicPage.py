@@ -1,10 +1,11 @@
 import logging
 from abc import ABCMeta, abstractmethod
 from collections.abc import Callable
+from datetime import datetime
 from email.mime.image import MIMEImage
 from email.utils import make_msgid
 from os import makedirs, path
-from time import gmtime, strftime, struct_time
+from time import strftime
 from typing import Dict, List, Optional
 from urllib.parse import urlsplit
 
@@ -13,7 +14,7 @@ import validators
 
 from libs.Cosecha.Config import TIMESTAMPFORMAT
 from libs.Utils.Files import extensionFromType, loadYAML, saveYAML, shaData, shaFile
-from libs.Utils.Misc import stripPubDate
+from libs.Utils.Misc import getUTC, stripPubDate
 from libs.Utils.Web import DownloadRawPage
 
 logger = logging.getLogger()
@@ -31,7 +32,7 @@ class ComicPage(metaclass=ABCMeta):
 
         self.URL: str = auxURL
         self.key: str = auxKey
-        self.timestamp: struct_time = gmtime()
+        self.timestamp: datetime = getUTC()
         self.comicDate: Optional[str] = None  # Date from page (if nay)
         self.comicId: Optional[str] = None  # Any identifier related to page (if any)
         self.mediaURL: Optional[str] = None
@@ -78,7 +79,8 @@ class ComicPage(metaclass=ABCMeta):
             raise ValueError(f"Unable to find media {self.URL}")
 
         img = DownloadRawPage(self.mediaURL, here=self.URL, allow_redirects=True)
-        self.timestamp = self.info['timestamp'] = strftime(TIMESTAMPFORMAT, img.timestamp)
+        self.timestamp = img.timestamp
+        self.info['timestamp'] = strftime(TIMESTAMPFORMAT, img.timestamp)
         self.data = img.data
         self.info['mediaURL'] = self.mediaURL = img.source
         self.info['mediaHash'] = self.mediaHash = shaData(img.data)
