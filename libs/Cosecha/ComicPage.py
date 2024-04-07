@@ -15,6 +15,7 @@ from libs.Cosecha.Config import TIMESTAMPFORMAT
 from libs.Utils.Files import extensionFromType, loadYAML, saveYAML, shaData, shaFile
 from libs.Utils.Misc import getUTC, stripPubDate
 from libs.Utils.Web import DownloadRawPage
+from libs.Cosecha.StoreManager import DBStorage
 
 logger = logging.getLogger()
 
@@ -145,7 +146,7 @@ class ComicPage(metaclass=ABCMeta):
 
         return pathList
 
-    def saveFiles(self, imgFolder: str, metadataFolder: str):
+    def saveFiles(self, imgFolder: str, metadataFolder: str, dbStore:Optional[DBStorage]=None,storeJSON:bool=True):
         if self.data is None:
             raise ValueError("saveFile: empty file")
 
@@ -161,21 +162,40 @@ class ComicPage(metaclass=ABCMeta):
 
         self.updateInfoLinks()
         self.updateOtherInfo()
-        metaFullPath = path.join(metadataFolder, *(self.metadataPath()))
-        makedirs(metaFullPath, mode=0o755, exist_ok=True)
-        metadataFilename = path.join(metaFullPath, self.metadataFilename())
-        saveYAML(self.info, metadataFilename)
 
-        self.saveMetadataPath = metadataFilename
+        if storeJSON:
+            metaFullPath = path.join(metadataFolder, *(self.metadataPath()))
+            makedirs(metaFullPath, mode=0o755, exist_ok=True)
+            metadataFilename = path.join(metaFullPath, self.metadataFilename())
+            self.saveMetadataPath = self.info['saveMetadataPath'] = metadataFilename
 
-    def exists(self, imgFolder: str, metadataFolder: str) -> bool:
+            saveYAML(self.info, metadataFilename)
+
+        if dbStore is not None:
+            pass
+
+
+    def exists(self, imgFolder: str, metadataFolder: str, dbStore:Optional[DBStorage]=None,storeJSON:bool=True) -> bool:
         metadataFilename = path.join(metadataFolder, *(self.metadataPath()), self.metadataFilename())
         dataPath = path.join(imgFolder, *(self.dataPath()))
 
-        if not path.exists(metadataFilename):
+        metadata = dict()
+        if dbStore is not None:
+            try:
+                record = dbStore.obj.ImageMetadata[self.key,self.id]
+                metadata = record.to_dict()
+            except dbStore.obj.RowNotFound as exc:
+                #We can live with that, there is no data, let's try files
+                pass
+        if (not metadata):
+            if storeJSON:
+                if not path.exists(metadataFilename):
+                    return False
+                metadata = loadYAML(metadataFilename)
+            else:
+                return False
+        if not metadata:
             return False
-
-        metadata = loadYAML(metadataFilename)
 
         if 'fullFilename' in metadata and path.exists(metadata['fullFilename']):  # We have file locations in metadata
             result = shaFile(metadata['fullFilename']) == metadata.get('mediaHash')

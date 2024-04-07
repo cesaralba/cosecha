@@ -1,6 +1,6 @@
 from os import makedirs, path
 
-from pony.orm import db_session, ObjectNotFound, set_sql_debug
+from pony.orm import db_session, ObjectNotFound, set_sql_debug, commit
 
 from libs.Cosecha.StoreManager import DBStorageBackendBase
 from .DBstore import DB
@@ -12,7 +12,7 @@ VALIDPROVIDERS = {'sqlite'}
 SQLITENONPATHPROVIDERS = {':memory:', ':sharedmemory:'}
 
 session_manager = db_session
-
+XXXX = commit # To save it from import clean up
 
 class CosechaStore(DBStorageBackendBase):
     def __init__(self, **kwargs):
