@@ -3,6 +3,7 @@ import os.path
 from argparse import Namespace, REMAINDER
 from configparser import ConfigParser
 from dataclasses import dataclass, Field, field
+from datetime import datetime
 from glob import glob
 from os import makedirs, path
 from typing import Dict, List, Optional
@@ -21,8 +22,65 @@ DEFAULTRUNNERMODE = "poll"
 DEFAULTRUNNERBATCHSIZE = 7
 DEFAULTPOLLINTERVAL = 'daily'
 
+STOREVALIDBACKENDS = {'Pony', 'None'}
+
 GMTIMEFORMATFORMAIL = "%Y/%m/%d-%H:%M %z"
 TIMESTAMPFORMAT = "%Y%m%d-%H%M%S %z"
+TIMESTAMPFORMATORM = "%Y-%m-%d %H:%M:%S%z"  # 2024-04-04 06:31:07+00:00
+
+
+@dataclass
+class storeConfig:
+    backend: str
+    backendData: Optional[dict] = None
+    verbose: bool = False
+    filename: Optional[str] = None
+    parser: Optional[ConfigParser] = None
+
+    @classmethod
+    def createFromParse(cls, parser: ConfigParser, filename: str):
+        auxData = dict()
+        auxData['filename'] = filename
+        auxData['parser'] = parser
+
+        auxData.update(mergeConfFileIntoDataClass(cls, parser, 'STORE'))
+
+        fileKeys = set(auxData.keys())
+        requiredClassFields = {k for k, v in cls.__dataclass_fields__.items() if
+                               not isinstance(v.default, (type(None), str, bool, int))}
+        missingKeys = requiredClassFields.difference(fileKeys)
+
+        if (missingKeys):
+            logging.error(f"{filename}: missing required fields: {missingKeys}")
+            raise KeyError(f"{filename}: missing required fields: {missingKeys}")
+
+        if auxData.get('backend', None).lower() == 'none':
+            return None
+
+        if 'DB' not in parser:
+            logging.error(f"{filename}: Backend requested {auxData['backend']} but no 'DB' section provided")
+            raise ValueError(f"{filename}: Backend requested {auxData['backend']} but no 'DB' section provided")
+
+        auxData['backendData'] = {k: v.strip('"').strip("'") for k, v in dict(parser['DB']).items()}
+
+        result = cls(**auxData)
+
+        return result
+
+    def __post_init__(self):
+        if not self.check():
+            raise ValueError(f"storeConfig: '{self.filename}' provided configuration for STORE is not valid")
+
+    def check(self):
+        problems = list()
+
+        if self.backend not in STOREVALIDBACKENDS:
+            problems.append(f"{self.filename}: Backend '{self.backend}' unknown. Known ones are {STOREVALIDBACKENDS}")
+
+        for msg in problems:
+            logging.error(msg)
+
+        return len(problems) == 0
 
 
 @dataclass
@@ -102,7 +160,7 @@ class runnerConfig:
         for msg in problems:
             logging.error(msg)
 
-        return (len(problems) == 0)
+        return len(problems) == 0
 
     @classmethod
     def createFromFile(cls, filename: str):
@@ -136,6 +194,7 @@ class globalConfig:
     imagesDirectory: str = 'images'
     metadataDirectory: str = 'metadata'
     stateDirectory: str = 'state'
+    databaseDirectory: str = 'db'
     runnersCFG: str = 'etc/runners.d/*.conf'
     dryRun: bool = False
     dontSendEmails: bool = False
@@ -146,6 +205,10 @@ class globalConfig:
     requiredRunners: List[str] = field(default_factory=list)
     maxBatchSize: int = 7
     defaultPollInterval: Optional[str] = DEFAULTPOLLINTERVAL
+    storeCFG: Optional[storeConfig] = None
+    storeJSON: bool = True
+    initializeStoreDB: bool = False
+    verbose: bool = False
 
     @classmethod
     def createFromArgs(cls, args: Namespace):
@@ -159,7 +222,8 @@ class globalConfig:
 
             auxData.update(mergeConfFileIntoDataClass(cls, parser, "GENERAL"))
 
-            auxData['mailCFG'] = mailConfig.createFromParse(parser, args.config)
+            auxData['mailCFG'] = mailConfig.createFromParse(parser, args.config) if 'MAIL' in parser else None
+            auxData['storeCFG'] = storeConfig.createFromParse(parser, args.config) if 'STORE' in parser else None
 
         if not args.requiredRunners:
             auxData['requiredRunners'] = []
@@ -185,6 +249,9 @@ class globalConfig:
 
         result = cls(**auxData)
 
+        if args.debug:
+            result.verbose = True
+
         result.runnersData = readRunnerConfigs(result.runnersCFG, result.homeDirectory())
 
         if not result.requiredRunners:
@@ -207,6 +274,8 @@ class globalConfig:
                             help='Location to store metadata files (supersedes ${CS_DATADIR}/metadata', required=False)
         parser.add_argument('-s', '--stateDir', dest='stateDirectory', type=str, env_var='CS_DESTDIRSTATE',
                             help='Location to store state files (supersedes ${CS_DATADIR}/state', required=False)
+        parser.add_argument('-b', '--stateDatabase', dest='databaseDirectory', type=str, env_var='CS_DESTDIRDB',
+                            help='Location to store database files (supersedes ${CS_DATADIR}/db', required=False)
 
         parser.add_argument('-r', '--runnersGlob', dest='runnersCFG', type=str, env_var='CS_RUNNERSCFG',
                             help='Glob for configuration files of runners', required=False)
@@ -223,6 +292,9 @@ class globalConfig:
         parser.add_argument('-x', '--maxBatchSize', dest='maxBatchSize', type=int,
                             help='Maximum number of images to download for a crawler', required=False)
 
+        parser.add_argument('--initialize-db', dest='initializeStoreDB', action="store_true", help="Create DB objects",
+                            required=False)
+
     def homeDirectory(self):
         return os.path.dirname(self.filename) if self.filename else '.'
 
@@ -234,6 +306,9 @@ class globalConfig:
 
     def stateD(self) -> str:
         return path.join(self.saveDirectory, self.stateDirectory)
+
+    def databaseD(self) -> str:
+        return path.join(self.saveDirectory, self.databaseDirectory)
 
     @classmethod
     def createStorePath(cls, field: str):
@@ -295,3 +370,16 @@ def convertToDataClassField(value, field: Field):
         return field.type(value)
 
     return value
+
+
+def parseDatatime(v):
+    if isinstance(v, str):
+        try:
+            newV = datetime.strptime(v, TIMESTAMPFORMAT)
+        except ValueError as exc:
+            newV = datetime.strptime(v, TIMESTAMPFORMATORM)
+        return newV
+    elif isinstance(v, datetime):
+        return v
+    else:
+        raise TypeError(f"Unable to process '{v}': don't know how to process it ({type(v)}")

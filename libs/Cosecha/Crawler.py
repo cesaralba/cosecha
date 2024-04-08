@@ -1,34 +1,43 @@
 import logging
-import sys
-from calendar import timegm
 from datetime import datetime
-from importlib import import_module
 from io import UnsupportedOperation
 from os import makedirs
-from time import localtime, mktime, strptime, struct_time
-from typing import Optional
+from time import struct_time
+from typing import Callable, Dict, Optional
 
 import validators
 
 from libs.Utils.Files import loadYAML, saveYAML
-from libs.Utils.Misc import createPath
+from libs.Utils.Misc import createPath, getUTC, UTC2local
 from .ComicPage import ComicPage
-from .Config import globalConfig, runnerConfig, RUNNERVALIDPOLLINTERVALS, TIMESTAMPFORMAT
+from .Config import globalConfig, parseDatatime, runnerConfig, RUNNERVALIDPOLLINTERVALS
+from .StoreManager import DBStorage
+from ..Utils.Python import LoadModule
+
+commit: Optional[Callable] = None
 
 
 class Crawler:
-    def __init__(self, runnerCFG: runnerConfig, globalCFG: globalConfig):
-        self.runnerCFG = runnerCFG
-        self.globalCFG = globalCFG
+    def __init__(self, runnerCFG: runnerConfig, globalCFG: globalConfig, dbStore: Optional[DBStorage] = None):
+        self.runnerCFG: runnerConfig = runnerCFG
+        self.globalCFG: globalConfig = globalCFG
+        self.dataStore: DBStorage = dbStore
         self.name = self.runnerCFG.name
-        self.state = CrawlerState(self.name, self.globalCFG.stateD()).load()
-        self.module = self.RunnerModule(self.runnerCFG.module)
+        self.state: CrawlerState = CrawlerState(runnerName=self.name, storePath=self.globalCFG.stateD(),
+                                                dbstore=self.dataStore, storeJSON=self.globalCFG.storeJSON).load()
+        self.fullModuleName, self.module = LoadModule(moduleName=self.runnerCFG.module,
+                                                      classLocation="libs.Cosecha.Sites")
         self.obj: ComicPage = self.module.Page(URL=self.state.lastURL, **dict(self.runnerCFG.data['RUNNER']))
         self.key: str = self.obj.key
         self.results = list()
 
+        logging.debug(f"CrawlerState: {self.state}")
+        global commit
+        if commit is None:
+            commit = self.dataStore.module.commit
+
         if self.state.lastUpdated is None:
-            # Either it is a new Crawler (ever) or it hasn't downloaded anything. It does not matter the poll interval
+            # Either it is a new Crawler (ever) or it hasn't downloaded anything, it does not matter the poll interval
             self.runnerCFG.pollInterval = None
 
     def __str__(self):
@@ -37,14 +46,6 @@ class Crawler:
         return result
 
     __repr__ = __str__
-
-    def RunnerModule(self, moduleName: str, classLocation: str = "libs.Cosecha.Sites"):
-        fullModName = f"{classLocation}.{moduleName}"
-
-        if fullModName not in sys.modules:
-            import_module(fullModName, classLocation)
-
-        return sys.modules[fullModName]
 
     def title(self):
         if self.runnerCFG.title is not None:
@@ -64,9 +65,10 @@ class Crawler:
         logging.debug(f"Crawler '{self.name}: batchSize: from global {self.globalCFG.maxBatchSize} from conf "
                       f"{self.runnerCFG.batchSize} -> {remainingImgs}")
         logging.info(f"Runner: '{self.name}'[{self.runnerCFG.module}] Crawling")
+        downloadedOnce = False
         while remainingImgs > 0:
             try:
-                if self.state.lastURL is None:
+                if (self.state.lastURL is None) and not downloadedOnce:
                     self.obj.downloadPage()
                     initialLink = self.runnerCFG.initial.lower()
                     if initialLink == '*first':
@@ -81,12 +83,13 @@ class Crawler:
                         raise ValueError(f"Runner: '{self.name}' {self.runnerCFG.filename}:Unknown initial value:'"
                                          f"{self.runnerCFG.initial}'")
                 self.obj.downloadPage()
+                downloadedOnce = True
                 if not self.obj.exists(self.globalCFG.imagesD(), self.globalCFG.metadataD()):
                     logging.debug(f"'{self.name}': downloading new image")
                     self.obj.downloadMedia()
                     self.results.append(self.obj)
                     remainingImgs -= 1
-                    self.state.update(self.obj)
+                    self.state.updateFromImage(self.obj)
                 else:
                     logging.debug(f"'{self.name}' {self.obj.URL}: already downloaded")
                 if self.obj.linkNext and self.obj.linkNext != self.obj.URL:
@@ -134,45 +137,68 @@ class Crawler:
 
         if mode is None:
             return True
+        if self.state.lastUpdated is None:
+            return True
 
+        DATEpoll = UTC2local(self.state.lastUpdated)
+        DATEnow = UTC2local(getUTC())
         if mode.lower() in {'weekly', 'biweekly'}:
-            weekPoll = datetime.fromtimestamp(mktime(self.state.lastPoll)).isocalendar().week
-            weekNow = datetime.fromtimestamp(mktime(now)).isocalendar().week
+            weekPoll = DATEpoll.isocalendar().week
+            weekNow = DATEnow.isocalendar().week
 
         match mode.lower():
             case 'none':
                 return True
             case 'daily':
-                return self.state.lastPoll.tm_yday != now.tm_yday
+                return DATEpoll.timetuple().tm_yday != DATEnow.timetuple().tm_yday
             case 'weekly':
                 return weekPoll != weekNow
             case 'biweekly':
                 return (weekPoll // 2) != (weekNow // 2)
             case 'monthly':
-                return self.state.lastPoll.tm_mon != now.tm_mon
+                return DATEpoll.month != DATEnow.month
             case 'bimonthly':
-                return (self.state.lastPoll.tm_mon // 2) != (now.tm_mon // 2)
+                return (DATEpoll.month // 2) != (DATEnow.month // 2)
             case 'quarterly':
-                return (self.state.lastPoll.tm_mon // 3) != (now.tm_mon // 3)
+                return (DATEpoll.month // 3) != (DATEnow.month // 3)
 
         raise KeyError("It shouldn't have got here")
 
 
 class CrawlerState:
-    stateElements = {'lastId': 'str', 'lastUpdated': 'timestamp', 'lastURL': 'str', 'lastMedia': 'str'}
+    stateElements = {'lastId', 'lastUpdated', 'lastURL', 'lastMediaURL'}
+    keyTranslations = {'lastMedia': 'lastMediaURL'}
 
-    def __init__(self, runnerName: str, storePath: str):
-        self.runner = runnerName
-        self.storePath = storePath
-        self.lastId = None
-        self.lastUpdated = None
-        self.lastURL = None
-        self.lastMedia = None
-        self.media = dict()
-        self.lastPoll: Optional[struct_time] = None
+    def __init__(self, runnerName: str, storePath: Optional[str] = None, dbstore: Optional[DBStorage] = None,
+                 storeJSON: bool = True
+                 ):
+        self.runnerName: str = runnerName
+        self.storePath: str = storePath
+        self.DBstore: DBStorage = dbstore
+        self.storeJSON: bool = storeJSON
+        self.lastId: Optional[str] = None
+        self.lastUpdated: Optional[datetime] = None
+        self.lastURL: Optional[str] = None
+        self.lastMediaURL: Optional[str] = None
+        self.media: Dict = dict()
+        self.record = None
+
+        if self.DBstore is None and self.storePath is None:
+            raise ValueError("No storage provided, at least storePath or DBstore must be provided")
+
+        if self.storeJSON and not self.storePath:
+            raise ValueError("Storage of State files requested but no storePath be provided")
+
+    def __str__(self):
+        result = "CrawlerState" + " ".join([f"{k}={getattr(self, k)} [{type(getattr(self, k))}]" for k in
+                                            (["runnerName"] + list(self.stateElements))])
+
+        return result
+
+    __repr__ = __str__
 
     def fullFilename(self):
-        result = f"{self.runner}.state"
+        result = f"{self.runnerName}.state"
         return result
 
     def completePath(self):
@@ -180,30 +206,78 @@ class CrawlerState:
 
         return result
 
-    def update(self, state: ComicPage):
-        self.lastId = state.comicId
-        self.lastUpdated = state.info['timestamp']
-        self.lastURL = state.URL
-        self.lastMedia = state.mediaURL
+    def updateFromImage(self, image: ComicPage):
+        """
+        Updates the fields with the latest image downloaded in channel
+        :param image:
+        :return:
+        """
+        self.lastId = image.comicId
+        self.lastUpdated = image.timestamp
+        self.lastURL = image.URL
+        self.lastMediaURL = image.mediaURL
 
     def load(self):
-        try:
-            inHash = loadYAML(self.completePath())
+        missingState = False
+        if self.DBstore is not None:
+            try:
+                dbData = self.DBstore.obj.CrawlerState[self.runnerName]
+                self.record = dbData
+                self.updateStateFromReadData(dbData.to_dict())
+            except self.DBstore.obj.RowNotFound as exc:
+                missingState = True
+            except Exception as exc:
+                logging.exception(exc, exc_info=True)
+                raise KeyError(f"Key {self.runnerName} not found on states DB. Ignoring crawler")
+            if not missingState:
+                return self
+        if self.storeJSON:
+            try:
+                inHash = loadYAML(self.completePath())
+                self.updateStateFromReadData(inHash)
 
-            for k, v in inHash.items():
-                setattr(self, k, v)
-        except FileNotFoundError as exc:
-            logging.warning(f"Unable to find {self.completePath()}. Will act as if it is the first time.")
-        except UnsupportedOperation as exc:
-            logging.warning(f"Problems reading {self.completePath()}. Will act as if it is the first time.", exc)
-
-        if self.lastUpdated:
-            self.lastPoll = localtime(timegm(strptime(self.lastUpdated, TIMESTAMPFORMAT)))  # It compares times in local
+            except FileNotFoundError as exc:
+                logging.warning(f"Unable to find {self.completePath()}. Will act as if it is the first time.")
+            except UnsupportedOperation as exc:
+                logging.warning(f"Problems reading {self.completePath()}. Will act as if it is the first time.", exc)
 
         return self
 
     def store(self):
-        makedirs(self.storePath, mode=0o755, exist_ok=True)
-        outHash = {k: getattr(self, k) for k in self.stateElements}
 
-        saveYAML(outHash, self.completePath())
+        if self.DBstore:
+            self.updateDBrecord()
+        if self.storeJSON:
+            makedirs(self.storePath, mode=0o755, exist_ok=True)
+            outHash = {k: getattr(self, k) for k in self.stateElements}
+            saveYAML(outHash, self.completePath())
+
+    def updateStateFromReadData(self, newData: dict):
+        for k, v in newData.items():
+            if k == 'lastUpdated':
+                setattr(self, k, parseDatatime(v))
+            elif k in self.stateElements:
+                setattr(self, k, v)
+            elif k in self.keyTranslations:
+                setattr(self, self.keyTranslations[k], v)
+
+    def createDBrecord(self):
+        newData = {k: getattr(self, k) for k in self.stateElements}
+        newData['runnerName'] = self.runnerName
+
+        dbData = self.DBstore.obj.CrawlerState(**newData)
+        commit()
+
+        return dbData
+
+    def updateDBrecord(self):
+        try:
+            currRecord = self.DBstore.obj.CrawlerState[self.runnerName]
+            newElems = {k: getattr(self, k) for k in self.stateElements if getattr(self, k) != getattr(currRecord, k)}
+            currRecord.set(**newElems)
+            result = self.DBstore.obj.CrawlerState[self.runnerName]
+            commit()
+            return result
+        except self.DBstore.obj.RowNotFound as exc:
+            newRecord = self.createDBrecord()
+            return newRecord

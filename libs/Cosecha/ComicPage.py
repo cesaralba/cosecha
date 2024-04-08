@@ -1,20 +1,22 @@
 import logging
 from abc import ABCMeta, abstractmethod
-from collections.abc import Callable
+from datetime import datetime
 from email.mime.image import MIMEImage
 from email.utils import make_msgid
 from os import makedirs, path
-from time import gmtime, strftime, struct_time
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 from urllib.parse import urlsplit
 
 import magic
 import validators
 
 from libs.Cosecha.Config import TIMESTAMPFORMAT
+from libs.Cosecha.StoreManager import DBStorage
 from libs.Utils.Files import extensionFromType, loadYAML, saveYAML, shaData, shaFile
-from libs.Utils.Misc import stripPubDate
+from libs.Utils.Misc import getUTC, prepareBuilderPayloadObj, stripPubDate
 from libs.Utils.Web import DownloadRawPage
+
+commit: Optional[Callable] = None
 
 logger = logging.getLogger()
 
@@ -31,7 +33,7 @@ class ComicPage(metaclass=ABCMeta):
 
         self.URL: str = auxURL
         self.key: str = auxKey
-        self.timestamp: struct_time = gmtime()
+        self.timestamp: datetime = getUTC()
         self.comicDate: Optional[str] = None  # Date from page (if nay)
         self.comicId: Optional[str] = None  # Any identifier related to page (if any)
         self.mediaURL: Optional[str] = None
@@ -78,7 +80,8 @@ class ComicPage(metaclass=ABCMeta):
             raise ValueError(f"Unable to find media {self.URL}")
 
         img = DownloadRawPage(self.mediaURL, here=self.URL, allow_redirects=True)
-        self.timestamp = self.info['timestamp'] = strftime(TIMESTAMPFORMAT, img.timestamp)
+        self.timestamp = img.timestamp
+        self.info['timestamp'] = img.timestamp.strftime(TIMESTAMPFORMAT)
         self.data = img.data
         self.info['mediaURL'] = self.mediaURL = img.source
         self.info['mediaHash'] = self.mediaHash = shaData(img.data)
@@ -144,7 +147,9 @@ class ComicPage(metaclass=ABCMeta):
 
         return pathList
 
-    def saveFiles(self, imgFolder: str, metadataFolder: str):
+    def saveFiles(self, imgFolder: str, metadataFolder: str, dbStore: Optional[DBStorage] = None,
+                  storeJSON: bool = True
+                  ):
         if self.data is None:
             raise ValueError("saveFile: empty file")
 
@@ -160,21 +165,49 @@ class ComicPage(metaclass=ABCMeta):
 
         self.updateInfoLinks()
         self.updateOtherInfo()
-        metaFullPath = path.join(metadataFolder, *(self.metadataPath()))
-        makedirs(metaFullPath, mode=0o755, exist_ok=True)
-        metadataFilename = path.join(metaFullPath, self.metadataFilename())
-        saveYAML(self.info, metadataFilename)
 
-        self.saveMetadataPath = metadataFilename
+        if storeJSON:
+            metaFullPath = path.join(metadataFolder, *(self.metadataPath()))
+            makedirs(metaFullPath, mode=0o755, exist_ok=True)
+            metadataFilename = path.join(metaFullPath, self.metadataFilename())
+            self.saveMetadataPath = self.info['saveMetadataPath'] = metadataFilename
 
-    def exists(self, imgFolder: str, metadataFolder: str) -> bool:
+            saveYAML(self.info, metadataFilename)
+
+        if dbStore is not None:
+            global commit
+
+            if commit is None:
+                commit = dbStore.module.commit
+
+        self.updateDBmetadataRecord(dbStore=dbStore)
+
+    def exists(self, imgFolder: str, metadataFolder: str, dbStore: Optional[DBStorage] = None, storeJSON: bool = True
+               ) -> bool:
+        global commit
+
         metadataFilename = path.join(metadataFolder, *(self.metadataPath()), self.metadataFilename())
         dataPath = path.join(imgFolder, *(self.dataPath()))
 
-        if not path.exists(metadataFilename):
+        metadata = dict()
+        if dbStore is not None:
+            if commit is None:
+                commit = dbStore.module.commit
+            try:
+                record = dbStore.obj.ImageMetadata[self.key, self.id]
+                metadata = record.to_dict()
+            except dbStore.obj.RowNotFound as exc:
+                # We can live with that, there is no data, let's try files
+                pass
+        if (not metadata):
+            if storeJSON:
+                if not path.exists(metadataFilename):
+                    return False
+                metadata = loadYAML(metadataFilename)
+            else:
+                return False
+        if not metadata:
             return False
-
-        metadata = loadYAML(metadataFilename)
 
         if 'fullFilename' in metadata and path.exists(metadata['fullFilename']):  # We have file locations in metadata
             result = shaFile(metadata['fullFilename']) == metadata.get('mediaHash')
@@ -234,4 +267,38 @@ class ComicPage(metaclass=ABCMeta):
 
         return part
 
-    # TODO: updateDB  # TODO: mailContent
+    def createDBmetadataRecord(self, dbStore: DBStorage):
+
+        newData = prepareBuilderPayloadObj(source=self, dest=dbStore.obj.ImageMetadata)
+        newData['mediaSize'] = self.size()
+        newData['fname'] = self.info['filename']
+        for k in newData:
+            newData['info'].pop(k, None)
+        dbData = dbStore.obj.ImageMetadata(**newData)
+        commit()
+
+        return dbData
+
+    def updateDBmetadataRecord(self, dbStore: DBStorage):
+        try:
+            currRecord = dbStore.obj.ImageMetadata[self.key, self.comicId]
+
+            getChanges = lambda k: getattr(self, k) != getattr(currRecord, k)
+
+            newElems = prepareBuilderPayloadObj(source=self, dest=dbStore.obj.ImageMetadata, condition=getChanges)
+            newElems['mediaSize'] = self.size()
+            newElems['fname'] = self.info['filename']
+            for k in newElems:
+                newElems['info'].pop(k, None)
+
+            currRecord.set(**newElems)
+            commit()
+
+            result = dbStore.obj.ImageMetadata[self.runnerName]
+            return result
+
+        except dbStore.obj.RowNotFound as exc:
+            newRecord = self.createDBmetadataRecord(dbStore=dbStore)
+            return newRecord
+
+    # TODO: updateDB

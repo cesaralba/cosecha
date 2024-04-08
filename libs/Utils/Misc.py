@@ -1,10 +1,11 @@
 import gzip
 import re
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
-from time import gmtime
-from typing import Tuple
+from typing import Callable, Dict, Iterable, Optional, Tuple
+
+from dateutil import tz
 
 ####################################################################################################################
 
@@ -48,7 +49,7 @@ def ReadFile(filename):
             read_data = handin.read()
             resData = ''.join(read_data)
 
-    return {'source': filename, 'data': resData, 'timestamp': gmtime()}
+    return {'source': filename, 'data': resData, 'timestamp': getUTC()}
 
 
 def CuentaClaves(x):
@@ -205,5 +206,46 @@ def stripPubDate(datePublished: str, formatDatePub: str) -> Tuple[str, str, str,
     datePub = datePub2structTime(datePublished, formatDatePub)
     result = datePub.strftime('%Y'), datePub.strftime('%m'), datePub.strftime('%d'), datePub.strftime(
             '%H'), datePub.strftime('%M'), datePub.strftime('%S')
+
+    return result
+
+
+def getUTC() -> datetime:
+    result = datetime.now(timezone.utc)
+
+    return result
+
+
+def UTC2local(t: datetime):
+    return t.astimezone(tz.tzlocal())
+
+
+def prepareBuilderPayloadDict(source: Dict, dest: object, fieldList: Optional[Iterable] = None,
+                              condition: Optional[Callable] = None
+                              ):
+    auxList = fieldList
+
+    auxCond = condition
+    if auxCond is None:
+        auxCond = lambda x: True
+    if fieldList is None:
+        auxList = {k for k in dir(dest) if ((not callable(getattr(dest, k))) and auxCond(k))}
+    result = {k: source[k] for k in auxList if k in source and source[k] is not None}
+
+    return result
+
+
+def prepareBuilderPayloadObj(source: object, dest: object, fieldList: Optional[Iterable] = None,
+                             condition: Optional[Callable] = None
+                             ):
+    auxList = fieldList
+
+    auxCond = condition
+    if auxCond is None:
+        auxCond = lambda x: True
+    if fieldList is None:
+        auxList = {k for k in dir(dest) if ((not callable(getattr(dest, k))) and auxCond(k) and not k.startswith('_'))}
+
+    result = {k: getattr(source, k) for k in auxList if hasattr(source, k) and getattr(source, k) is not None}
 
     return result

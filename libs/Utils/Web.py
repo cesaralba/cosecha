@@ -3,12 +3,14 @@ import re
 from argparse import Namespace
 from collections import namedtuple
 from collections.abc import Callable
-from time import gmtime, time
+from time import time
 from typing import Optional
 from urllib.parse import (parse_qs, unquote, urlencode, urljoin, urlparse, urlunparse)
 
 import requests
 from mechanicalsoup import StatefulBrowser
+
+from .Misc import getUTC
 
 logger = logging.getLogger()
 
@@ -56,7 +58,7 @@ def DownloadPage(dest, home=None, browser: Optional[StatefulBrowser] = None, con
 
     logger.debug("DownloadPage: downloaded %s (%f)", target, timeDL)
 
-    return DownloadedPage(source=source, data=content, timestamp=gmtime(), home=home, browser=browser, config=config)
+    return DownloadedPage(source=source, data=content, timestamp=getUTC(), home=home, browser=browser, config=config)
 
 
 def DownloadRawPage(dest, here=None, sanitizer: Optional[Callable[[bytes], bytes]] = None, *args, **kwargs
@@ -82,7 +84,7 @@ def DownloadRawPage(dest, here=None, sanitizer: Optional[Callable[[bytes], bytes
     resultData = sanitizer(response.content) if sanitizer else response.content
     logger.debug("DownloadPage: downloaded %s (%f)", destURL, timeDL)
 
-    result = DownloadedPage(source=response.url, data=resultData, timestamp=gmtime(), home=here, extra=response)
+    result = DownloadedPage(source=response.url, data=resultData, timestamp=getUTC(), home=here, extra=response)
 
     return result
 
