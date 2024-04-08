@@ -205,7 +205,7 @@ class globalConfig:
     maxBatchSize: int = 7
     defaultPollInterval: Optional[str] = DEFAULTPOLLINTERVAL
     storeCFG:Optional[storeConfig] = None
-    storeStateFiles:bool = True
+    storeJSON:bool = True
     initializeStoreDB:bool = False
     verbose:bool = False
 

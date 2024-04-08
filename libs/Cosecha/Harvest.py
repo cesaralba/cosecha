@@ -110,7 +110,7 @@ class Harvest:
             if crawler.results:
                 for res in crawler.results:
                     try:
-                        res.saveFiles(self.globalCFG.imagesD(), self.globalCFG.metadataD())
+                        res.saveFiles(self.globalCFG.imagesD(), self.globalCFG.metadataD(), self.dataStore, self.globalCFG.storeJSON)
                         crawler.state.updateFromImage(res)
                         crawler.state.store()
                         savedFiles.append(res)

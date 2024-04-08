@@ -5,7 +5,7 @@ from datetime import datetime
 from email.mime.image import MIMEImage
 from email.utils import make_msgid
 from os import makedirs, path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional,Callable
 from urllib.parse import urlsplit
 
 import magic
@@ -13,11 +13,14 @@ import validators
 
 from libs.Cosecha.Config import TIMESTAMPFORMAT
 from libs.Utils.Files import extensionFromType, loadYAML, saveYAML, shaData, shaFile
-from libs.Utils.Misc import getUTC, stripPubDate
+from libs.Utils.Misc import getUTC, prepareBuilderPayloadDict, prepareBuilderPayloadObj, stripPubDate
 from libs.Utils.Web import DownloadRawPage
 from libs.Cosecha.StoreManager import DBStorage
 
+commit:Optional[Callable] = None
+
 logger = logging.getLogger()
+
 
 
 class ComicPage(metaclass=ABCMeta):
@@ -172,15 +175,24 @@ class ComicPage(metaclass=ABCMeta):
             saveYAML(self.info, metadataFilename)
 
         if dbStore is not None:
-            pass
+            global commit
+
+            if commit is None:
+                commit = dbStore.module.commit
+
+        self.updateDBmetadataRecord(dbStore=dbStore)
 
 
     def exists(self, imgFolder: str, metadataFolder: str, dbStore:Optional[DBStorage]=None,storeJSON:bool=True) -> bool:
+        global commit
+
         metadataFilename = path.join(metadataFolder, *(self.metadataPath()), self.metadataFilename())
         dataPath = path.join(imgFolder, *(self.dataPath()))
 
         metadata = dict()
         if dbStore is not None:
+            if commit is None:
+                commit = dbStore.module.commit
             try:
                 record = dbStore.obj.ImageMetadata[self.key,self.id]
                 metadata = record.to_dict()
@@ -254,5 +266,40 @@ class ComicPage(metaclass=ABCMeta):
         part.add_header("Content-ID", f"<{self.mediaAttId}>")
 
         return part
+
+    def createDBmetadataRecord(self,dbStore:DBStorage):
+
+        newData = prepareBuilderPayloadObj(source=self,dest =dbStore.obj.ImageMetadata)
+        newData['mediaSize'] = self.size()
+        newData['fname'] = self.info['filename']
+        for k in newData:
+            newData['info'].pop(k,None)
+        dbData = dbStore.obj.ImageMetadata(**newData)
+        commit()
+
+        return dbData
+
+    def updateDBmetadataRecord(self,dbStore:DBStorage):
+        try:
+            currRecord = dbStore.obj.ImageMetadata[self.key,self.comicId]
+
+            getChanges = lambda k: getattr(self,k) != getattr(currRecord, k)
+
+            newElems = prepareBuilderPayloadObj(source=self,dest =dbStore.obj.ImageMetadata,condition=getChanges)
+            newElems['mediaSize'] = self.size()
+            newElems['fname'] = self.info['filename']
+            for k in newElems:
+                newElems['info'].pop(k,None)
+
+            currRecord.set(**newElems)
+            commit()
+
+            result = dbStore.obj.ImageMetadata[self.runnerName]
+            return result
+
+        except dbStore.obj.RowNotFound as exc:
+            newRecord = self.createDBmetadataRecord(dbStore=dbStore)
+            return newRecord
+
 
     # TODO: updateDB

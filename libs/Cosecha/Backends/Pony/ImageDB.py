@@ -8,16 +8,15 @@ from .DBstore import DB
 class ImageMetadataDB(DB.Entity):
     timestamp = Required(datetime.datetime)
     key = Required(str)
-    comicID = Required(str)
-    comicDate = Required(str)
+    comicId = Required(str)
+    comicDate = Optional(str)
     URL = Required(str)
-    URLmedia = Required(str)
-    crawlerName = Required(str)
-    hash = Required(str, index=True)
-    size = Required(int, size=24, unsigned=True)
+    mediaURL = Required(str)
+    mediaHash = Required(str, index=True)
+    mediaSize = Required(int, size=24, unsigned=True)
     fname = Optional(str)
     info = Optional(Json)
-    PrimaryKey(key, comicID)
+    PrimaryKey(key, comicId)
 
 
 class ChannelStateDB(DB.Entity):

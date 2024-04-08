@@ -24,7 +24,7 @@ class Crawler:
         self.dataStore: DBStorage = dbStore
         self.name = self.runnerCFG.name
         self.state: CrawlerState = CrawlerState(runnerName=self.name, storePath=self.globalCFG.stateD(),
-                                                dbstore=self.dataStore, storeJSON=self.globalCFG.storeStateFiles).load()
+                                                dbstore=self.dataStore, storeJSON=self.globalCFG.storeJSON).load()
         self.fullModuleName, self.module = LoadModule(moduleName=self.runnerCFG.module,
                                                       classLocation="libs.Cosecha.Sites")
         self.obj: ComicPage = self.module.Page(URL=self.state.lastURL, **dict(self.runnerCFG.data['RUNNER']))
