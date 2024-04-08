@@ -3,18 +3,18 @@ from datetime import datetime
 from io import UnsupportedOperation
 from os import makedirs
 from time import struct_time
-from typing import Dict, Optional
+from typing import Callable, Dict, Optional
 
 import validators
 
 from libs.Utils.Files import loadYAML, saveYAML
 from libs.Utils.Misc import createPath, getUTC, UTC2local
 from .ComicPage import ComicPage
-from .Config import globalConfig, runnerConfig, RUNNERVALIDPOLLINTERVALS, TIMESTAMPFORMAT, TIMESTAMPFORMATORM
+from .Config import globalConfig, parseDatatime, runnerConfig, RUNNERVALIDPOLLINTERVALS
 from .StoreManager import DBStorage
 from ..Utils.Python import LoadModule
 
-commit = None
+commit: Optional[Callable] = None
 
 
 class Crawler:
@@ -31,6 +31,7 @@ class Crawler:
         self.key: str = self.obj.key
         self.results = list()
 
+        logging.debug(f"CrawlerState: {self.state}")
         global commit
         if commit is None:
             commit = self.dataStore.module.commit
@@ -136,8 +137,10 @@ class Crawler:
 
         if mode is None:
             return True
+        if self.state.lastUpdated is None:
+            return True
 
-        DATEpoll = UTC2local(self.state.lastPoll)
+        DATEpoll = UTC2local(self.state.lastUpdated)
         DATEnow = UTC2local(getUTC())
         if mode.lower() in {'weekly', 'biweekly'}:
             weekPoll = DATEpoll.isocalendar().week
@@ -178,7 +181,6 @@ class CrawlerState:
         self.lastURL: Optional[str] = None
         self.lastMediaURL: Optional[str] = None
         self.media: Dict = dict()
-        self.lastPoll: Optional[datetime] = None
         self.record = None
 
         if self.DBstore is None and self.storePath is None:
@@ -239,9 +241,6 @@ class CrawlerState:
             except UnsupportedOperation as exc:
                 logging.warning(f"Problems reading {self.completePath()}. Will act as if it is the first time.", exc)
 
-        if self.lastUpdated:
-            self.lastPoll = UTC2local(self.lastUpdated)  # It compares times in local
-
         return self
 
     def store(self):
@@ -256,16 +255,7 @@ class CrawlerState:
     def updateStateFromReadData(self, newData: dict):
         for k, v in newData.items():
             if k == 'lastUpdated':
-                if isinstance(v, str):
-                    try:
-                        newV = datetime.strptime(v, TIMESTAMPFORMAT)
-                    except ValueError as exc:
-                        newV = datetime.strptime(v, TIMESTAMPFORMATORM)
-                    setattr(self, k, newV)
-                elif isinstance(v, datetime):
-                    setattr(self, k, v)
-                else:
-                    raise TypeError(f"Unable to process '{v}': don't know how to process it")
+                setattr(self, k, parseDatatime(v))
             elif k in self.stateElements:
                 setattr(self, k, v)
             elif k in self.keyTranslations:

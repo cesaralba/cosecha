@@ -3,14 +3,15 @@ import smtplib
 import sys
 from email.mime.multipart import MIMEMultipart
 from time import gmtime, localtime, strftime
-from typing import List, Optional
+from typing import List, Optional,Callable
 
 from .Config import globalConfig, GMTIMEFORMATFORMAIL, runnerConfig
 from .Crawler import Crawler
 from .Mail import MailMessage
 from .StoreManager import DBStorage
+from ..Utils.Misc import getUTC
 
-session_manager = None
+session_manager:Optional[Callable] = None
 
 
 class Harvest:
@@ -62,7 +63,7 @@ class Harvest:
         Creates Crawler objects from configuration files
         :return:
         """
-        execTime = localtime()
+        execTime = getUTC()
 
         if not self.globalCFG.runnersData:
             raise EnvironmentError(

@@ -3,6 +3,7 @@ import os.path
 from argparse import Namespace, REMAINDER
 from configparser import ConfigParser
 from dataclasses import dataclass, Field, field
+from datetime import datetime
 from glob import glob
 from os import makedirs, path
 from typing import Dict, List, Optional
@@ -369,3 +370,16 @@ def convertToDataClassField(value, field: Field):
         return field.type(value)
 
     return value
+
+
+def parseDatatime(v):
+    if isinstance(v, str):
+        try:
+            newV = datetime.strptime(v, TIMESTAMPFORMAT)
+        except ValueError as exc:
+            newV = datetime.strptime(v, TIMESTAMPFORMATORM)
+        return newV
+    elif isinstance(v, datetime):
+        return v
+    else:
+        raise TypeError(f"Unable to process '{v}': don't know how to process it ({type(v)}")
