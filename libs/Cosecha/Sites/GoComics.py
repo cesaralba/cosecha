@@ -81,9 +81,9 @@ class Page(ComicPage):
         result = f"{self.key}.{intId}.{ext}"
         return result
 
-    def mailBodyFragment(self, indent=1):
+    def mailBodyFragment(self, indent=1, imgSeq: int = 0, imgTot: int = 0, **kwargs):
         title = self.info['about']
-        text = f"""{(indent) * "#"} {self.key} #{self.comicId} [{title}]({self.URL})
+        text = f"""{indent * "#"} ({imgSeq}/{imgTot}) {self.key} #{self.comicId} [{title}]({self.URL})
 ![{self.mediaURL}](cid:{self.mediaAttId})
 """
 

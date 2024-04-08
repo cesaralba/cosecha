@@ -55,7 +55,7 @@ class MailBundle:
             result.append((indent + 3) * " " + f"[{k}/{self.imgTot}] {image}")
         return "\n".join(result)
 
-    def compose(self, indent=1):
+    def compose(self, indent:int=1):
         resultPlain = []
         attachList = []
 
@@ -64,8 +64,8 @@ class MailBundle:
 """
         resultPlain.append(textHeader)
 
-        for image in self.images:
-            imgPlain = image.mailBodyFragment(indent + 1)
+        for seq,image in enumerate(self.images, start=self.imgSeq):
+            imgPlain = image.mailBodyFragment(indent + 1,imgSeq=seq,imgTot=self.imgTot)
             resultPlain.append(imgPlain)
             attachList.append(image.prepareAttachment())
 
