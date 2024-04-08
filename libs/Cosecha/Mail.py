@@ -12,13 +12,15 @@ from ..Utils.Misc import listize
 
 
 class MailBundle:
-    def __init__(self, crawler: Crawler = None):
+    def __init__(self, crawler: Crawler = None, imgSeq: int = 0):
         self.name = crawler.name
         self.bid: int = 0  # Order number of bundle for the specific crawler
         self.bcnt: int = 0  # Total number of bundles of the specific crawler
         self.crawler = crawler
         self.images: List[ComicPage] = []
         self.size: int = 0
+        self.imgSeq: int = imgSeq
+        self.imgTot: int = 0
 
     def __str__(self):
         seqStr = "" if self.bcnt == 1 else f"({self.bid}/{self.bcnt})"
@@ -49,8 +51,8 @@ class MailBundle:
         if cnt == 0:
             cnt = self.bcnt
         result.append(((indent) * " ") + f"[{j}/{cnt}] {self}")
-        for k, image in enumerate(self.images, start=1):
-            result.append((indent + 3) * " " + f"[{k}] {image}")
+        for k, image in enumerate(self.images, start=self.imgSeq):
+            result.append((indent + 3) * " " + f"[{k}/{self.imgTot}] {image}")
         return "\n".join(result)
 
     def compose(self, indent=1):
@@ -93,11 +95,11 @@ class MailMessage:
     def setCnt(self, cnt: int = 0):
         self.mcnt = cnt
 
-    def addImage(self, crawler: Crawler, image: ComicPage):
+    def addImage(self, crawler: Crawler, image: ComicPage, imageSeq: int = 0):
         cName = crawler.name
         if cName not in self.bundles:
             logging.debug((f"[{self}] Added crawler '{cName}'"))
-            self.bundles[cName] = MailBundle(crawler)
+            self.bundles[cName] = MailBundle(crawler, imgSeq=imageSeq)
 
         self.bundles[cName].addImage(image)
         self.size += image.size()

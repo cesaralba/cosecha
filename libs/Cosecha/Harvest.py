@@ -165,7 +165,7 @@ class MailDelivery:
             logging.debug(f"Preparing crawler {crawler.name}. Images: {len(crawler.results)}")
             crawlerMessages: List[MailMessage] = []
             firstMessageForCrawler = False
-
+            imagePerCrawlerCNT: int = 1
             if not crawler.results:
                 continue
 
@@ -178,7 +178,7 @@ class MailDelivery:
             for image in crawler.results:
 
                 if (self.currMessage.size + image.size()) <= self.mailMaxSize:
-                    self.currMessage.addImage(crawler, image)
+                    self.currMessage.addImage(crawler, image, imageSeq=imagePerCrawlerCNT)
                     if not firstMessageForCrawler:
                         crawlerMessages.append(self.currMessage)
                         firstMessageForCrawler = True
@@ -194,13 +194,15 @@ class MailDelivery:
                                 f"Image size ({image.size()}) exceeds maximum allowed limit ({self.mailMaxSize}). "
                                 f"Sending "
                                 f"anyway but it may not reach destination")
-                    self.currMessage.addImage(crawler, image)
+                    self.currMessage.addImage(crawler, image, imageSeq=imagePerCrawlerCNT)
+                imagePerCrawlerCNT += 1
 
             logging.debug(f"Labelling bundles for crawler '{crawler.name}'. {len(crawlerMessages)} Messages: "
                           f"{crawlerMessages}")
             for bid, msg in enumerate(crawlerMessages, start=1):
                 msg.bundles[crawler.name].setId(bid)
                 msg.bundles[crawler.name].setCnt(len(crawlerMessages))
+                msg.bundles[crawler.name].imgTot = len(crawler.results)
 
         for msg in self.messages:
             msg.setCnt(len(self.messages))
