@@ -40,7 +40,6 @@ def parse_arguments():
     elif args.debug:
         logLevel = logging.DEBUG
 
-
     prepareLogger(logger=logger, level=logLevel)
 
     configGlobal = globalConfig.createFromArgs(args)

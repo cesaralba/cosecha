@@ -1,10 +1,10 @@
 from os import makedirs, path
 
-from pony.orm import db_session, ObjectNotFound, set_sql_debug, commit
+from pony.orm import commit, db_session, ObjectNotFound, set_sql_debug
 
 from libs.Cosecha.StoreManager import DBStorageBackendBase
+from .DBclasses import ChannelStateDB, ImageMetadataDB
 from .DBstore import DB
-from .ImageDB import ChannelStateDB, ImageMetadataDB
 
 # https://docs.ponyorm.org/api_reference.html#sqlite
 
@@ -12,7 +12,8 @@ VALIDPROVIDERS = {'sqlite'}
 SQLITENONPATHPROVIDERS = {':memory:', ':sharedmemory:'}
 
 session_manager = db_session
-_ = commit # To save it from import clean up
+_ = commit  # To save it from import clean up
+
 
 class CosechaStore(DBStorageBackendBase):
     def __init__(self, **kwargs):
@@ -37,7 +38,6 @@ class CosechaStore(DBStorageBackendBase):
         requiredKeys = {'provider'}
         requiredKeysPerProvider = {'sqlite': {'filename'}
                                    }
-
         backendData = self.storeCFG.backendData
 
         missingBaseKeys = requiredKeys.difference(set(backendData.keys()))

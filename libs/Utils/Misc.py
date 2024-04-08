@@ -1,10 +1,12 @@
 import gzip
 import re
 from collections import defaultdict
-from pathlib import Path
-from typing import Tuple,Dict,Optional,Iterable,Callable
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import Callable, Dict, Iterable, Optional, Tuple
+
 from dateutil import tz
+
 ####################################################################################################################
 
 FORMATOtimestamp = "%Y-%m-%d %H:%M"
@@ -207,35 +209,43 @@ def stripPubDate(datePublished: str, formatDatePub: str) -> Tuple[str, str, str,
 
     return result
 
+
 def getUTC() -> datetime:
     result = datetime.now(timezone.utc)
 
     return result
 
-def UTC2local(t:datetime):
+
+def UTC2local(t: datetime):
     return t.astimezone(tz.tzlocal())
 
-def prepareBuilderPayloadDict(source:Dict,dest:object,fieldList:Optional[Iterable]=None,condition:Optional[Callable] = None):
+
+def prepareBuilderPayloadDict(source: Dict, dest: object, fieldList: Optional[Iterable] = None,
+                              condition: Optional[Callable] = None
+                              ):
     auxList = fieldList
 
     auxCond = condition
     if auxCond is None:
-        auxCond = lambda x:True
+        auxCond = lambda x: True
     if fieldList is None:
-        auxList= {k for k in dir(dest) if ((not callable(getattr(dest,k))) and auxCond(k))}
-    result = {k:source[k] for k in auxList if k in source and source[k] is not None}
+        auxList = {k for k in dir(dest) if ((not callable(getattr(dest, k))) and auxCond(k))}
+    result = {k: source[k] for k in auxList if k in source and source[k] is not None}
 
     return result
 
-def prepareBuilderPayloadObj(source:object,dest:object,fieldList:Optional[Iterable]=None,condition:Optional[Callable] = None):
+
+def prepareBuilderPayloadObj(source: object, dest: object, fieldList: Optional[Iterable] = None,
+                             condition: Optional[Callable] = None
+                             ):
     auxList = fieldList
 
     auxCond = condition
     if auxCond is None:
-        auxCond = lambda x:True
+        auxCond = lambda x: True
     if fieldList is None:
-        auxList= {k for k in dir(dest) if ((not callable(getattr(dest,k))) and auxCond(k) and not k.startswith('_'))}
+        auxList = {k for k in dir(dest) if ((not callable(getattr(dest, k))) and auxCond(k) and not k.startswith('_'))}
 
-    result = {k:getattr(source,k) for k in auxList if hasattr(source,k) and getattr(source,k) is not None}
+    result = {k: getattr(source, k) for k in auxList if hasattr(source, k) and getattr(source, k) is not None}
 
     return result

@@ -22,17 +22,18 @@ DEFAULTRUNNERMODE = "poll"
 DEFAULTRUNNERBATCHSIZE = 7
 DEFAULTPOLLINTERVAL = 'daily'
 
-STOREVALIDBACKENDS = {'Pony','None'}
+STOREVALIDBACKENDS = {'Pony', 'None'}
 
 GMTIMEFORMATFORMAIL = "%Y/%m/%d-%H:%M %z"
 TIMESTAMPFORMAT = "%Y%m%d-%H%M%S %z"
-TIMESTAMPFORMATORM = "%Y-%m-%d %H:%M:%S%z" #2024-04-04 06:31:07+00:00
+TIMESTAMPFORMATORM = "%Y-%m-%d %H:%M:%S%z"  # 2024-04-04 06:31:07+00:00
+
 
 @dataclass
 class storeConfig:
     backend: str
     backendData: Optional[dict] = None
-    verbose:bool = False
+    verbose: bool = False
     filename: Optional[str] = None
     parser: Optional[ConfigParser] = None
 
@@ -53,14 +54,14 @@ class storeConfig:
             logging.error(f"{filename}: missing required fields: {missingKeys}")
             raise KeyError(f"{filename}: missing required fields: {missingKeys}")
 
-        if auxData.get('backend',None).lower() == 'none':
+        if auxData.get('backend', None).lower() == 'none':
             return None
 
         if 'DB' not in parser:
             logging.error(f"{filename}: Backend requested {auxData['backend']} but no 'DB' section provided")
             raise ValueError(f"{filename}: Backend requested {auxData['backend']} but no 'DB' section provided")
 
-        auxData['backendData'] = {k:v.strip('"').strip("'") for k,v in dict(parser['DB']).items()}
+        auxData['backendData'] = {k: v.strip('"').strip("'") for k, v in dict(parser['DB']).items()}
 
         result = cls(**auxData)
 
@@ -193,7 +194,7 @@ class globalConfig:
     imagesDirectory: str = 'images'
     metadataDirectory: str = 'metadata'
     stateDirectory: str = 'state'
-    databaseDirectory:str = 'db'
+    databaseDirectory: str = 'db'
     runnersCFG: str = 'etc/runners.d/*.conf'
     dryRun: bool = False
     dontSendEmails: bool = False
@@ -204,10 +205,10 @@ class globalConfig:
     requiredRunners: List[str] = field(default_factory=list)
     maxBatchSize: int = 7
     defaultPollInterval: Optional[str] = DEFAULTPOLLINTERVAL
-    storeCFG:Optional[storeConfig] = None
-    storeJSON:bool = True
-    initializeStoreDB:bool = False
-    verbose:bool = False
+    storeCFG: Optional[storeConfig] = None
+    storeJSON: bool = True
+    initializeStoreDB: bool = False
+    verbose: bool = False
 
     @classmethod
     def createFromArgs(cls, args: Namespace):
@@ -291,9 +292,8 @@ class globalConfig:
         parser.add_argument('-x', '--maxBatchSize', dest='maxBatchSize', type=int,
                             help='Maximum number of images to download for a crawler', required=False)
 
-        parser.add_argument('--initialize-db', dest='initializeStoreDB', action="store_true",
-                            help="Create DB objects", required=False)
-
+        parser.add_argument('--initialize-db', dest='initializeStoreDB', action="store_true", help="Create DB objects",
+                            required=False)
 
     def homeDirectory(self):
         return os.path.dirname(self.filename) if self.filename else '.'

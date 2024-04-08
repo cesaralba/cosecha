@@ -1,4 +1,3 @@
 from pony import orm
 
-DB=orm.Database()
-
+DB = orm.Database()

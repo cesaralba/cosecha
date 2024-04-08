@@ -2,8 +2,8 @@ import logging
 import smtplib
 import sys
 from email.mime.multipart import MIMEMultipart
-from time import gmtime, localtime, strftime
-from typing import List, Optional,Callable
+from time import gmtime, strftime
+from typing import Callable, List, Optional
 
 from .Config import globalConfig, GMTIMEFORMATFORMAIL, runnerConfig
 from .Crawler import Crawler
@@ -11,7 +11,7 @@ from .Mail import MailMessage
 from .StoreManager import DBStorage
 from ..Utils.Misc import getUTC
 
-session_manager:Optional[Callable] = None
+session_manager: Optional[Callable] = None
 
 
 class Harvest:
@@ -110,7 +110,8 @@ class Harvest:
             if crawler.results:
                 for res in crawler.results:
                     try:
-                        res.saveFiles(self.globalCFG.imagesD(), self.globalCFG.metadataD(), self.dataStore, self.globalCFG.storeJSON)
+                        res.saveFiles(self.globalCFG.imagesD(), self.globalCFG.metadataD(), self.dataStore,
+                                      self.globalCFG.storeJSON)
                         crawler.state.updateFromImage(res)
                         crawler.state.store()
                         savedFiles.append(res)

@@ -1,10 +1,11 @@
 from abc import ABCMeta, abstractmethod
 
-from .Config import globalConfig,storeConfig
+from .Config import globalConfig, storeConfig
 from ..Utils.Python import LoadModule
 
 commit = None
 session_manager = None
+
 
 class DBStorageBackendBase(metaclass=ABCMeta):
     def __init__(self, **kwargs):
@@ -12,12 +13,12 @@ class DBStorageBackendBase(metaclass=ABCMeta):
         if not auxGlobalCFG:
             raise KeyError("Missing 'globalCFG' parameter")
 
-        self.globalCFG:globalConfig=auxGlobalCFG
-        self.storeCFG:storeConfig=self.globalCFG.storeCFG
-        self.verbose=self.globalCFG.verbose
+        self.globalCFG: globalConfig = auxGlobalCFG
+        self.storeCFG: storeConfig = self.globalCFG.storeCFG
+        self.verbose = self.globalCFG.verbose
 
     @abstractmethod
-    def connect(self,**kwargs):
+    def connect(self, **kwargs):
         """Prepares the connection to the actual database"""
         raise NotImplementedError
 
@@ -34,10 +35,11 @@ class DBStorageBackendBase(metaclass=ABCMeta):
 
 
 class DBStorage:
-    def __init__(self, globalCFG:globalConfig):
-        self.globalCFG:globalConfig = globalCFG
-        self.storeCFG:storeConfig = globalCFG.storeCFG
-        self.fullModuleName, self.module = LoadModule(moduleName=self.storeCFG.backend,classLocation="libs.Cosecha.Backends")
+    def __init__(self, globalCFG: globalConfig):
+        self.globalCFG: globalConfig = globalCFG
+        self.storeCFG: storeConfig = globalCFG.storeCFG
+        self.fullModuleName, self.module = LoadModule(moduleName=self.storeCFG.backend,
+                                                      classLocation="libs.Cosecha.Backends")
         self.obj = self.module.CosechaStore(globalCFG=self.globalCFG)
 
     def prepare(self):

@@ -6,10 +6,11 @@ from collections.abc import Callable
 from time import time
 from typing import Optional
 from urllib.parse import (parse_qs, unquote, urlencode, urljoin, urlparse, urlunparse)
-from .Misc import getUTC
 
 import requests
 from mechanicalsoup import StatefulBrowser
+
+from .Misc import getUTC
 
 logger = logging.getLogger()
 
