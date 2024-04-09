@@ -1,6 +1,6 @@
 import logging
 import smtplib
-import sys
+from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from time import gmtime, strftime
 from typing import Callable, List, Optional
@@ -27,9 +27,34 @@ class Harvest:
         # Working objects
         self.crawlers: List[Crawler] = []
         self.dataStore: Optional[DBStorage] = None
+        self.Mailer: Optional[MailDelivery] = None
+
+        self.startTime: Optional[datetime] = None
+        self.stopTime: Optional[datetime] = None
+
+    def __len__(self):
+        return len(self.usefulCrawlers())
+
+    def numImages(self):
+        return sum([len(crwl) for crwl in self.usefulCrawlers()])
+
+    def size(self):
+        return sum([crwl.size() for crwl in self.usefulCrawlers()])
 
     def go(self):
+
+        def doSession(self):
+            self.prepare()
+            self.download()
+            if not self.globalCFG.dryRun:
+                if not self.globalCFG.dontSave:
+                    self.save()
+
+                if (not self.globalCFG.dontSendEmails) and self.globalCFG.mailCFG:
+                    self.email()
+
         global session_manager
+        self.startTime = datetime.now()
 
         if self.globalCFG.storeCFG:
             self.dataStore = DBStorage(globalCFG=self.globalCFG)
@@ -38,25 +63,11 @@ class Harvest:
 
             with session_manager(immediate=True, optimistic=False, serializable=True, sql_debug=self.globalCFG.verbose,
                                  show_values=self.globalCFG.verbose):
-                self.prepare()
-                self.download()
-
-                if not self.globalCFG.dryRun:
-                    if not self.globalCFG.dontSave:
-                        self.save()
-
-                    if (not self.globalCFG.dontSendEmails) and self.globalCFG.mailCFG:
-                        self.email()
+                doSession(self)
         else:
-            self.prepare()
-            self.download()
+            doSession(self)
 
-            if not self.globalCFG.dryRun:
-                if not self.globalCFG.dontSave:
-                    self.save()
-
-                if (not self.globalCFG.dontSendEmails) and self.globalCFG.mailCFG:
-                    self.email()
+        self.stopTime = datetime.now()
 
     def prepare(self):
         """
@@ -95,8 +106,7 @@ class Harvest:
                 logging.exception(exc, stack_info=True)
 
         if not (self.crawlers):
-            logging.warning("No crawlers to execute")
-            sys.exit(1)
+            logging.info("No crawlers to execute")
 
     def download(self):
         for crawler in self.crawlers:
@@ -122,9 +132,11 @@ class Harvest:
                 if len(savedFiles) != len(crawler.results):
                     crawler.results = savedFiles
 
-    def print(self):
+    def printFilesReport(self):
         lines: List[str] = []
 
+        lines.append(f"FILES REPORT: {len(self)} bundles {self.numImages()} images ({self.size()}b)")
+        lines.append("")
         for i, crawler in enumerate(sorted(self.usefulCrawlers(), key=lambda c: c.name), start=1):
             if crawler.results:
                 lines.append(f"[{i}] Crawler: '{crawler.name}' ({crawler.runnerCFG.mode}@{crawler.runnerCFG.filename})")
@@ -137,17 +149,41 @@ class Harvest:
         print("\n".join(lines))
 
     def email(self):
-        mailDelivery = MailDelivery(self)
+        self.Mailer = MailDelivery(self)
 
-        mailDelivery.print()
-
-        mailDelivery.prepareCargo()
-        mailDelivery.sendCargo()
+        self.Mailer.prepareCargo()
+        self.Mailer.sendCargo()
 
     def usefulCrawlers(self):
         result = [c for c in self.crawlers if len(c.results)]
 
         return result
+
+    def printSummary(self, showFiles=True, showMails=True):
+        numCrawls = len(self.crawlers)
+
+        numberMessages = len(self.Mailer) if self.Mailer else "NOMAIL"
+        execTime = self.stopTime - self.startTime
+        auxStrs = list()
+        if self.globalCFG.dryRun:
+            auxStrs.append("DRY RUN")
+        if self.globalCFG.dontSave:
+            auxStrs.append("NOT SAVING")
+        if self.globalCFG.dontSendEmails:
+            auxStrs.append("NOT SENDING")
+
+        dryRunStr = f"({','.join(auxStrs)})" if auxStrs else ""
+
+        print(
+            f" Cosecha: exec {self.startTime} Runners: {len(self)}/{numCrawls} Images: {self.numImages()} ("
+            f"{self.size()}b) Mails: {numberMessages} ExecTime: {execTime} {dryRunStr}")
+
+        if self.globalCFG.printDetailedReport:
+            print("\n")
+            self.printFilesReport()
+            if self.Mailer:
+                print("\n")
+                self.Mailer.print()
 
 
 class MailDelivery:
@@ -217,10 +253,9 @@ class MailDelivery:
     def print(self):
         lines: List[str] = []
 
-        lines.append(f" Mails to deliver: {len(self.messages)}")
+        lines.append(f"MAIL REPORT:  Messages: {len(self.messages)}\n")
         for i, msg in enumerate(self.messages, start=1):
             lines.append(msg.print(i, 0))
-
         print("\n".join(lines))
 
     def prepareCargo(self):
@@ -242,3 +277,6 @@ class MailDelivery:
             logging.error(e)
         finally:
             server.quit()
+
+    def __len__(self):
+        return len(self.messages)

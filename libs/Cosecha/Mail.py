@@ -55,7 +55,7 @@ class MailBundle:
             result.append((indent + 3) * " " + f"[{k}/{self.imgTot}] {image}")
         return "\n".join(result)
 
-    def compose(self, indent:int=1):
+    def compose(self, indent: int = 1):
         resultPlain = []
         attachList = []
 
@@ -64,8 +64,8 @@ class MailBundle:
 """
         resultPlain.append(textHeader)
 
-        for seq,image in enumerate(self.images, start=self.imgSeq):
-            imgPlain = image.mailBodyFragment(indent + 1,imgSeq=seq,imgTot=self.imgTot)
+        for seq, image in enumerate(self.images, start=self.imgSeq):
+            imgPlain = image.mailBodyFragment(indent + 1, imgSeq=seq, imgTot=self.imgTot)
             resultPlain.append(imgPlain)
             attachList.append(image.prepareAttachment())
 
@@ -112,7 +112,7 @@ class MailMessage:
         for j, bundleN in enumerate(sorted(self.bundles), start=1):
             bundle = self.bundles[bundleN]
             result.append(bundle.print(indent=indent + 3, j=j, cnt=len(self.bundles)))
-
+        result.append("")
         return "\n".join(result)
 
     def compose(self, config: mailConfig, subject="Cosecha"):

@@ -209,6 +209,9 @@ class globalConfig:
     storeJSON: bool = True
     initializeStoreDB: bool = False
     verbose: bool = False
+    printReport: bool = True
+    printReportAlways: bool = False
+    printDetailedReport: bool = False
 
     @classmethod
     def createFromArgs(cls, args: Namespace):
@@ -252,6 +255,10 @@ class globalConfig:
         if args.debug:
             result.verbose = True
 
+        if result.verbose:
+            result.printReportAlways = True
+            result.printDetailedReport = True
+
         result.runnersData = readRunnerConfigs(result.runnersCFG, result.homeDirectory())
 
         if not result.requiredRunners:
@@ -265,6 +272,8 @@ class globalConfig:
         parser.add_argument('-c', '--config', dest='config', action="store", env_var='CS_CONFIG', required=False,
                             help='Fichero de configuración',
                             default="etc/cosecha.cfg")  # TODO: Quitar ese valor por defect
+        parser.add_argument('-r', '--runnersGlob', dest='runnersCFG', type=str, env_var='CS_RUNNERSCFG',
+                            help='Glob for configuration files of runners', required=False)
 
         parser.add_argument('-o', '--saveDir', dest='saveDirectory', type=str, env_var='CS_DATADIR',
                             help='Root directory to store things', required=False)
@@ -277,23 +286,26 @@ class globalConfig:
         parser.add_argument('-b', '--stateDatabase', dest='databaseDirectory', type=str, env_var='CS_DESTDIRDB',
                             help='Location to store database files (supersedes ${CS_DATADIR}/db', required=False)
 
-        parser.add_argument('-r', '--runnersGlob', dest='runnersCFG', type=str, env_var='CS_RUNNERSCFG',
-                            help='Glob for configuration files of runners', required=False)
-
+        parser.add_argument('--initialize-db', dest='initializeStoreDB', action="store_true", help="Create DB objects",
+                            required=False)
         parser.add_argument('-n', '--dry-run', dest='dryRun', action="store_true", env_var='CS_DRYRUN',
                             help="Don't save or send emails", required=False)
-        parser.add_argument('--ignore-poll-interval', dest='ignorePollInterval', action="store_true",
-                            env_var='CS_NOSAVE', help="Don't check poll intervals", required=False)
         parser.add_argument('--no-emails', dest='dontSendEmails', action="store_true", env_var='CS_NOEMAILS',
                             help="Don't send emails", required=False)
         parser.add_argument('--no-save', dest='dontSave', action="store_true", env_var='CS_NOSAVE',
                             help="Don't save images", required=False)
 
+        parser.add_argument('--ignore-poll-interval', dest='ignorePollInterval', action="store_true",
+                            env_var='CS_NOSAVE', help="Don't check poll intervals", required=False)
         parser.add_argument('-x', '--maxBatchSize', dest='maxBatchSize', type=int,
                             help='Maximum number of images to download for a crawler', required=False)
 
-        parser.add_argument('--initialize-db', dest='initializeStoreDB', action="store_true", help="Create DB objects",
-                            required=False)
+        parser.add_argument('--print-report', dest='printReport', action="store_true",
+                            help="Reports what has been done (if any)", required=False)
+        parser.add_argument('--print-report-always', dest='printReportAlways', action="store_true",
+                            help="Reports what has been done (always shows report)", required=False)
+        parser.add_argument('--print-report-detailed', dest='printDetailedReport', action="store_true",
+                            help="Shows information of each file downloaded and mail sent", required=False)
 
     def homeDirectory(self):
         return os.path.dirname(self.filename) if self.filename else '.'
@@ -331,10 +343,17 @@ def mergeConfFileIntoDataClass(cls, parser: ConfigParser, sectionN: str) -> dict
     result = dict()
     for field in cls.__dataclass_fields__:
         if field in parser[sectionN]:
-            value2add = parser.get(sectionN, field).strip('"').strip("'")
-            targetField = cls.__dataclass_fields__[field]
 
-            result[field] = convertToDataClassField(value2add, targetField)
+            targetField = cls.__dataclass_fields__[field]
+            if targetField.type == int:
+                value2add = parser[sectionN].getint(field)
+            elif targetField.type == bool:
+                value2add = parser[sectionN].getboolean(field)
+            elif targetField.type == float:
+                value2add = parser[sectionN].getfloat(field)
+            else:
+                value2add = parser[sectionN].get(field).strip('"').strip("'")
+            result[field] = value2add  # convertToDataClassField(value2add, targetField))
     return result
 
 
