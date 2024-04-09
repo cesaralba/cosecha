@@ -20,7 +20,7 @@ class Page(ComicPage):
         auxKey = kwargs.pop('key', None) or KEY
         auxURL = kwargs.pop('URL', None) or URLBASE
 
-        super().__init__(key=auxKey, URL=auxURL,**kwargs)
+        super().__init__(key=auxKey, URL=auxURL, **kwargs)
 
     def __str__(self):
         dataStr = f"[{self.size()}b]" if self.data else "No data"
@@ -73,13 +73,13 @@ class Page(ComicPage):
         result = f"{self.key}.{intId:04}.{ext}"
         return result
 
-    def mailBodyFragment(self, indent=1):
+    def mailBodyFragment(self, indent=1, imgSeq: int = 0, imgTot: int = 0, **kwargs):
         title = self.info['title']
         commentsStr = ""
         if 'comments' in self.info:
             commentsStr = "\n".join(map(lambda c: f"* {c}", self.info['comments']))
 
-        text = f"""{(indent) * "#"} {self.key} #{self.comicId} [{title}]({self.URL})
+        text = f"""{indent * "#"} ({imgSeq}/{imgTot}) {self.key} #{self.comicId} [{title}]({self.URL})
 ![{self.mediaURL}](cid:{self.mediaAttId})
 
 {commentsStr}

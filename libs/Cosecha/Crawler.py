@@ -3,7 +3,7 @@ from datetime import datetime
 from io import UnsupportedOperation
 from os import makedirs
 from time import struct_time
-from typing import Callable, Dict, Optional
+from typing import Callable, Dict, List, Optional
 
 import validators
 
@@ -29,7 +29,7 @@ class Crawler:
                                                       classLocation="libs.Cosecha.Sites")
         self.obj: ComicPage = self.module.Page(URL=self.state.lastURL, **dict(self.runnerCFG.data['RUNNER']))
         self.key: str = self.obj.key
-        self.results = list()
+        self.results: List[ComicPage] = list()
 
         logging.debug(f"CrawlerState: {self.state}")
         global commit
@@ -46,6 +46,12 @@ class Crawler:
         return result
 
     __repr__ = __str__
+
+    def __len__(self):
+        return len(self.results)
+
+    def size(self):
+        return sum([img.size() for img in self.results])
 
     def title(self):
         if self.runnerCFG.title is not None:

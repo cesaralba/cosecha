@@ -147,8 +147,7 @@ class ComicPage(metaclass=ABCMeta):
 
         return pathList
 
-    def saveFiles(self, imgFolder: str, metadataFolder: str, dbStore: Optional[DBStorage] = None,
-                  storeJSON: bool = True
+    def saveFiles(self, imgFolder: str, metadataFolder: str, dbStore: Optional[DBStorage] = None, storeJSON: bool = True
                   ):
         if self.data is None:
             raise ValueError("saveFile: empty file")
@@ -249,8 +248,8 @@ class ComicPage(metaclass=ABCMeta):
             ext = extensionFromType(self.mimeType).lower()
         return ext
 
-    def mailBodyFragment(self, indent=1):
-        text = f"""{(indent) * "#"} [{self.key} {self.comicId}]({self.URL})
+    def mailBodyFragment(self, indent=1, imgSeq: int = 0, imgTot: int = 0):
+        text = f"""{(indent) * "#"} ({imgSeq}/{imgTot}) [{self.key} {self.comicId}]({self.URL})
 ![{self.mediaURL}](cid:{self.mediaAttId})"""
 
         return text
