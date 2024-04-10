@@ -26,10 +26,15 @@ class Page(ComicPage):
         return result
 
     def downloadPage(self):
+        reqMetas = {'title', 'url'}
         self.info = dict()
 
         pagBase = DownloadPage(self.URL)
         metas = findInterestingMetas(pagBase.data)
+
+        if reqMetas.difference(set(metas.keys())):
+            metas = findInterestingMetasTheHardWay(pagBase.data, currMetas=metas)
+
         self.info['title'] = metas['title']
         self.URL = self.info['url'] = metas['url']
         self.comicId = self.info['id'] = extractId(metas['url'])
@@ -78,6 +83,11 @@ class Page(ComicPage):
 
 
 def findInterestingMetas(webContent: bs4.BeautifulSoup):
+    """
+    Metadata for page (meta's) contain all the interesting info (if present)
+    :param webContent:
+    :return:
+    """
     labs2extract = {'title', 'url'}
     result = dict()
 
@@ -88,6 +98,25 @@ def findInterestingMetas(webContent: bs4.BeautifulSoup):
         if label not in labs2extract:
             continue
         result[label] = entry.attrs['content']
+
+    return result
+
+
+def findInterestingMetasTheHardWay(webContent: bs4.BeautifulSoup, currMetas: dict):
+    """
+    If we couldn't extract information from meta tags on the head block, let's find info one by one
+    :param webContent:
+    :param currMetas:
+    :return:
+    """
+    result = currMetas.copy()
+    if 'title' not in currMetas:
+        auxTitle = webContent.head.find('title').text.lstrip('xkcd:').strip()
+        result['title'] = auxTitle
+    if 'url' not in currMetas:
+        auxText = webContent.find(string=re.compile('Permanent link to this comic: '))
+        auxLink = auxText.find_next('a')
+        result['url'] = auxLink.text.strip()
 
     return result
 
