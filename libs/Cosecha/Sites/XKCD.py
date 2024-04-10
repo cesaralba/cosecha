@@ -62,7 +62,7 @@ class Page(ComicPage):
         :return: a list with elements that will be added to the path to store elements (metadata & images for now)
         """
         idGrouper = (int(self.comicId) // IDPATHDIVIDER) * IDPATHDIVIDER
-        pathList = [self.key, f"{idGrouper:04}"]
+        pathList = [self.key, f"{idGrouper:05}"]
 
         return pathList
 
