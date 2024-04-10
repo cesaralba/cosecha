@@ -28,6 +28,8 @@ GMTIMEFORMATFORMAIL = "%Y/%m/%d-%H:%M %z"
 TIMESTAMPFORMAT = "%Y%m%d-%H%M%S %z"
 TIMESTAMPFORMATORM = "%Y-%m-%d %H:%M:%S%z"  # 2024-04-04 06:31:07+00:00
 
+IDPATHDIVIDER: int = 500
+
 
 @dataclass
 class storeConfig:

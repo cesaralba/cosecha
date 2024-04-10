@@ -1,12 +1,14 @@
 import logging
 import os.path
 import re
+from typing import List
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import bs4
 from markdownify import markdownify
 
 from libs.Cosecha.ComicPage import ComicPage
+from libs.Cosecha.Config import IDPATHDIVIDER
 from libs.Utils.Files import getSaneFilenameStr
 from libs.Utils.Web import DownloadPage
 
@@ -56,6 +58,19 @@ class Page(ComicPage):
     def updateOtherInfo(self):
         # Will do if need arises
         pass
+
+    def sharedPath(self) -> List[str]:
+        """
+        Produces a path for files
+        :return: a list with elements that will be added to the path to store elements (metadata & images for now)
+        """
+        idGrouper = (int(self.comicId) // IDPATHDIVIDER) * IDPATHDIVIDER
+        pathList = [self.key, f"{idGrouper:04}"]
+
+        return pathList
+
+    dataPath = sharedPath
+    metadataPath = sharedPath
 
     def dataFilename(self):
         ext = self.fileExtension()
