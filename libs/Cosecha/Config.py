@@ -27,6 +27,8 @@ STOREVALIDBACKENDS = {'Pony', 'None'}
 GMTIMEFORMATFORMAIL = "%Y/%m/%d-%H:%M %z"
 TIMESTAMPFORMAT = "%Y%m%d-%H%M%S %z"
 TIMESTAMPFORMATORM = "%Y-%m-%d %H:%M:%S%z"  # 2024-04-04 06:31:07+00:00
+GOCOMICSDATE = "%Y-%m-%d"
+SMBCDATE = '%Y-%m-%dT%H:%M:%S%z'
 
 IDPATHDIVIDER: int = 500
 
