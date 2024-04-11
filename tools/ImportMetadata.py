@@ -177,9 +177,6 @@ def main(config):
 
                     print(f"Processed: {fullPath} -> {newHash['key']},{newHash['comicId']}")
 
-        print(f"Total files:{fileCounter}")
-
-
 if __name__ == '__main__':
 
     sys.run_local = os.path.abspath(__file__)

@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from io import UnsupportedOperation
 from os import makedirs
 from time import struct_time
@@ -164,10 +164,6 @@ class Crawler:
                 return True
             case 'daily':
                 return DATEpoll.timetuple().tm_yday != DATEnow.timetuple().tm_yday
-            case 'weekly':
-                return weekPoll != weekNow
-            case 'biweekly':
-                return (weekPoll // 2) != (weekNow // 2)
             case 'monthly':
                 return DATEpoll.month != DATEnow.month
             case 'bimonthly':
@@ -236,8 +232,11 @@ class CrawlerState:
             try:
                 dbData = self.DBstore.obj.CrawlerState[self.runnerName]
                 self.record = dbData
-                self.updateStateFromReadData(dbData.to_dict())
+                auxData = dbData.to_dict().copy()
+                auxData['lastUpdated'] = auxData['lastUpdated'].replace(tzinfo=timezone.utc)
+                self.updateStateFromReadData(auxData)
             except self.DBstore.obj.RowNotFound as exc:
+                logging.warning(f"CrawlerState {self.runnerName} NOT FOUND")
                 missingState = True
             except Exception as exc:
                 logging.exception(exc, exc_info=True)
