@@ -148,7 +148,7 @@ class Crawler:
 
         DATEpoll = UTC2local(self.state.lastUpdated)
         DATEnow = UTC2local(getUTC())
-        logging.debug(f"checkPollSlot: Poll {DATEpoll} Now {DATEnow}")
+        logging.debug(f"checkPollSlot: Mode: {mode} Poll: {DATEpoll} Now: {DATEnow}")
         if mode.lower() in {'weekly', 'biweekly'}:
             weekPoll = DATEpoll.isocalendar().week
             weekNow = DATEnow.isocalendar().week
