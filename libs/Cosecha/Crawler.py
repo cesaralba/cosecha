@@ -236,7 +236,6 @@ class CrawlerState:
                 auxData['lastUpdated'] = auxData['lastUpdated'].replace(tzinfo=timezone.utc)
                 self.updateStateFromReadData(auxData)
             except self.DBstore.obj.RowNotFound as exc:
-                logging.warning(f"CrawlerState {self.runnerName} NOT FOUND")
                 missingState = True
             except Exception as exc:
                 logging.exception(exc, exc_info=True)
@@ -249,9 +248,9 @@ class CrawlerState:
                 self.updateStateFromReadData(inHash)
 
             except FileNotFoundError as exc:
-                logging.warning(f"Unable to find {self.completePath()}. Will act as if it is the first time.")
+                logging.warning(f"Unable to find state for {self.runnerName}. Will act as if it were the first time.")
             except UnsupportedOperation as exc:
-                logging.warning(f"Problems reading {self.completePath()}. Will act as if it is the first time.", exc)
+                logging.warning(f"Problems reading state for {self.runnerName}. Will act as if it were the first time.", exc)
 
         return self
 
