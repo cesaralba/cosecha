@@ -57,8 +57,7 @@ class Harvest:
         self.startTime = datetime.now()
 
         if self.globalCFG.storeCFG:
-            self.dataStore = DBStorage(globalCFG=self.globalCFG)
-            self.dataStore.prepare()
+            self.prepareStorage()
             session_manager = self.dataStore.module.session_manager
 
             with session_manager(immediate=True, optimistic=False, serializable=True, sql_debug=self.globalCFG.verbose,
@@ -68,6 +67,10 @@ class Harvest:
             doSession(self)
 
         self.stopTime = datetime.now()
+
+    def prepareStorage(self):
+        self.dataStore = DBStorage(globalCFG=self.globalCFG)
+        self.dataStore.prepare()
 
     def prepare(self):
         """
@@ -174,9 +177,8 @@ class Harvest:
 
         dryRunStr = f"({','.join(auxStrs)})" if auxStrs else ""
 
-        print(
-            f" Cosecha: exec {self.startTime} Runners: {len(self)}/{numCrawls} Images: {self.numImages()} ("
-            f"{self.size()}b) Mails: {numberMessages} ExecTime: {execTime} {dryRunStr}")
+        print(f" Cosecha: exec {self.startTime} Runners: {len(self)}/{numCrawls} Images: {self.numImages()} ("
+              f"{self.size()}b) Mails: {numberMessages} ExecTime: {execTime} {dryRunStr}")
 
         if self.globalCFG.printDetailedReport:
             print("\n")
