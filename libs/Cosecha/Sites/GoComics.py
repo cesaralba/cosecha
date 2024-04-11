@@ -7,6 +7,7 @@ from urllib.parse import urljoin
 import bs4
 
 from libs.Cosecha.ComicPage import ComicPage
+from libs.Cosecha.Config import GOCOMICSDATE
 from libs.Utils.Misc import datePub2Id
 from libs.Utils.Web import DownloadPage, findObjectsWithAttributes
 
@@ -14,7 +15,7 @@ URLBASE = 'https://www.gocomics.com'
 
 
 class Page(ComicPage):
-    DATEFORMAT = '%Y-%m-%d'
+    DATEFORMAT = GOCOMICSDATE
     IDFROMDATE = '%Y%m%d'
 
     def __init__(self, **kwargs):

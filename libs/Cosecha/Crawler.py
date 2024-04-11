@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from io import UnsupportedOperation
 from os import makedirs
 from time import struct_time
@@ -148,19 +148,22 @@ class Crawler:
 
         DATEpoll = UTC2local(self.state.lastUpdated)
         DATEnow = UTC2local(getUTC())
+        logging.debug(f"checkPollSlot: Mode: {mode} Poll: {DATEpoll} Now: {DATEnow}")
         if mode.lower() in {'weekly', 'biweekly'}:
             weekPoll = DATEpoll.isocalendar().week
             weekNow = DATEnow.isocalendar().week
+
+            match mode.lower():
+                case 'weekly':
+                    return weekPoll != weekNow
+                case 'biweekly':
+                    return (weekPoll // 2) != (weekNow // 2)
 
         match mode.lower():
             case 'none':
                 return True
             case 'daily':
                 return DATEpoll.timetuple().tm_yday != DATEnow.timetuple().tm_yday
-            case 'weekly':
-                return weekPoll != weekNow
-            case 'biweekly':
-                return (weekPoll // 2) != (weekNow // 2)
             case 'monthly':
                 return DATEpoll.month != DATEnow.month
             case 'bimonthly':
@@ -229,7 +232,9 @@ class CrawlerState:
             try:
                 dbData = self.DBstore.obj.CrawlerState[self.runnerName]
                 self.record = dbData
-                self.updateStateFromReadData(dbData.to_dict())
+                auxData = dbData.to_dict().copy()
+                auxData['lastUpdated'] = auxData['lastUpdated'].replace(tzinfo=timezone.utc)
+                self.updateStateFromReadData(auxData)
             except self.DBstore.obj.RowNotFound as exc:
                 missingState = True
             except Exception as exc:
@@ -243,9 +248,9 @@ class CrawlerState:
                 self.updateStateFromReadData(inHash)
 
             except FileNotFoundError as exc:
-                logging.warning(f"Unable to find {self.completePath()}. Will act as if it is the first time.")
+                logging.warning(f"Unable to find state for {self.runnerName}. Will act as if it were the first time.")
             except UnsupportedOperation as exc:
-                logging.warning(f"Problems reading {self.completePath()}. Will act as if it is the first time.", exc)
+                logging.warning(f"Problems reading state for {self.runnerName}. Will act as if it were the first time.", exc)
 
         return self
 

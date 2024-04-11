@@ -5,6 +5,7 @@ from typing import Optional
 import bs4
 
 from libs.Cosecha.ComicPage import ComicPage
+from libs.Cosecha.Config import SMBCDATE
 from libs.Utils.Misc import datePub2Id
 from libs.Utils.Web import DownloadPage, MergeURL
 
@@ -13,7 +14,7 @@ KEY = "smbc"
 
 
 class Page(ComicPage):
-    DATEFORMAT = '%Y-%m-%dT%H:%M:%S%z'
+    DATEFORMAT = SMBCDATE
     IDFROMDATE = '%Y%m%dT%H%M'
 
     def __init__(self, **kwargs):

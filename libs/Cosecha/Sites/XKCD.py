@@ -1,9 +1,10 @@
 import re
-from typing import Optional
+from typing import List, Optional
 
 import bs4
 
 from libs.Cosecha.ComicPage import ComicPage
+from libs.Cosecha.Config import IDPATHDIVIDER
 from libs.Utils.Web import DownloadPage, MergeURL
 
 URLBASE = "https://xkcd.com/"
@@ -54,6 +55,19 @@ class Page(ComicPage):
     def updateOtherInfo(self):
         # Will do if need arises
         pass
+
+    def sharedPath(self) -> List[str]:
+        """
+        Produces a path for files
+        :return: a list with elements that will be added to the path to store elements (metadata & images for now)
+        """
+        idGrouper = (int(self.comicId) // IDPATHDIVIDER) * IDPATHDIVIDER
+        pathList = [self.key, f"{idGrouper:05}"]
+
+        return pathList
+
+    dataPath = sharedPath
+    metadataPath = sharedPath
 
     def dataFilename(self):
         ext = self.fileExtension()
