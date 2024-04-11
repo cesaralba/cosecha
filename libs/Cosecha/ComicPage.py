@@ -35,13 +35,14 @@ class ComicPage(metaclass=ABCMeta):
         self.key: str = auxKey
         self.timestamp: datetime = getUTC()
         self.comicDate: Optional[str] = None  # Date from page (if nay)
-        self.comicId: Optional[str] = None  # Any identifier related to page (if any)
-        self.mediaURL: Optional[str] = None
+        self.comicId: Optional[str] = kwargs.get('comicId', None)  # Any identifier related to page (if any)
+        self.mediaURL: Optional[str] = kwargs.get('mediaURL', None)
         self.data: Optional[bytes] = None  # Actual image
         self.mediaHash: Optional[str] = None
         self.mediaAttId: Optional[str] = None
         self.mimeType: Optional[str] = None
-        self.info: dict = {'key': self.key}  # Dict containing metadata related to page (alt text, title...)
+        self.info: dict = dict(**{'key': self.key}, **(
+            kwargs.get('info', {})))  # Dict containing metadata related to page (alt text, title...)
         self.otherInfo: dict = {}
         self.saveFilePath: Optional[str] = None
         self.saveMetadataPath: Optional[str] = None
@@ -155,8 +156,7 @@ class ComicPage(metaclass=ABCMeta):
         dataFullPath = path.join(imgFolder, *(self.dataPath()))
         makedirs(dataFullPath, mode=0o755, exist_ok=True)
         dataFilename = path.join(dataFullPath, self.dataFilename())
-        self.info['filename'] = self.dataFilename()
-        self.info['fullFilename'] = dataFilename
+        self.info['fname'] = self.dataFilename()
 
         with open(dataFilename, "wb") as bin_file:
             bin_file.write(self.data)
@@ -169,7 +169,7 @@ class ComicPage(metaclass=ABCMeta):
             metaFullPath = path.join(metadataFolder, *(self.metadataPath()))
             makedirs(metaFullPath, mode=0o755, exist_ok=True)
             metadataFilename = path.join(metaFullPath, self.metadataFilename())
-            self.saveMetadataPath = self.info['saveMetadataPath'] = metadataFilename
+            self.saveMetadataPath = metadataFilename
 
             saveYAML(self.info, metadataFilename)
 
@@ -215,10 +215,12 @@ class ComicPage(metaclass=ABCMeta):
                 logging.warning(f"File {metadata['fullFilename']} location {expectedPath} is not where it was expected "
                                 f"{dataPath}")
             return result
-        elif 'filename' in metadata and path.exists(path.join(dataPath, metadata['filename'])):  # Id
-            wrkFileName = path.join(dataPath, metadata['filename'])
-            result = shaFile(wrkFileName) == metadata.get('mediaHash')
-            return result
+        elif ('filename' in metadata or 'fname' in metadata):
+            fName = metadata.get('fname', metadata.get('filename', None))
+            workingPath = path.join(dataPath, fName)
+            if path.exists(workingPath):  # Id
+                result = shaFile(workingPath) == metadata.get('mediaHash')
+                return result
         else:  # We have to compose name
             dataFilename = self.dataFilename()
             if not dataFilename:
@@ -270,7 +272,7 @@ class ComicPage(metaclass=ABCMeta):
 
         newData = prepareBuilderPayloadObj(source=self, dest=dbStore.obj.ImageMetadata)
         newData['mediaSize'] = self.size()
-        newData['fname'] = self.info['filename']
+
         for k in newData:
             newData['info'].pop(k, None)
         dbData = dbStore.obj.ImageMetadata(**newData)
@@ -293,11 +295,9 @@ class ComicPage(metaclass=ABCMeta):
             currRecord.set(**newElems)
             commit()
 
-            result = dbStore.obj.ImageMetadata[self.runnerName]
+            result = dbStore.obj.ImageMetadata[self.key, self.comicId]
             return result
 
         except dbStore.obj.RowNotFound as exc:
             newRecord = self.createDBmetadataRecord(dbStore=dbStore)
             return newRecord
-
-    # TODO: updateDB
