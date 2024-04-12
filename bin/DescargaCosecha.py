@@ -35,10 +35,10 @@ def parse_arguments():
     args = parser.parse_args()
 
     logLevel = logging.WARNING
-    if args.debug:
-        logLevel = logging.DEBUG
-    elif args.verbose:
+    if args.verbose:
         logLevel = logging.INFO
+    elif args.debug:
+        logLevel = logging.DEBUG
 
     prepareLogger(logger=logger, level=logLevel)
 
@@ -60,7 +60,8 @@ def main(config):
 
     cosecha.go()
 
-    cosecha.print()
+    if config.printReportAlways or (config.printReport and len(cosecha)):
+        cosecha.printSummary()
 
 
 if __name__ == '__main__':

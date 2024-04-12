@@ -1,9 +1,10 @@
 import re
-from typing import Optional
+from typing import List, Optional
 
 import bs4
 
 from libs.Cosecha.ComicPage import ComicPage
+from libs.Cosecha.Config import IDPATHDIVIDER
 from libs.Utils.Web import DownloadPage, MergeURL
 
 URLBASE = "https://xkcd.com/"
@@ -26,10 +27,15 @@ class Page(ComicPage):
         return result
 
     def downloadPage(self):
+        reqMetas = {'title', 'url'}
         self.info = dict()
 
         pagBase = DownloadPage(self.URL)
         metas = findInterestingMetas(pagBase.data)
+
+        if reqMetas.difference(set(metas.keys())):
+            metas = findInterestingMetasTheHardWay(pagBase.data, currMetas=metas)
+
         self.info['title'] = metas['title']
         self.URL = self.info['url'] = metas['url']
         self.comicId = self.info['id'] = extractId(metas['url'])
@@ -50,6 +56,19 @@ class Page(ComicPage):
         # Will do if need arises
         pass
 
+    def sharedPath(self) -> List[str]:
+        """
+        Produces a path for files
+        :return: a list with elements that will be added to the path to store elements (metadata & images for now)
+        """
+        idGrouper = (int(self.comicId) // IDPATHDIVIDER) * IDPATHDIVIDER
+        pathList = [self.key, f"{idGrouper:05}"]
+
+        return pathList
+
+    dataPath = sharedPath
+    metadataPath = sharedPath
+
     def dataFilename(self):
         ext = self.fileExtension()
         intId = int(self.comicId)
@@ -66,9 +85,9 @@ class Page(ComicPage):
         result = f"{self.key}.{intId:05}.{ext}"
         return result
 
-    def mailBodyFragment(self, indent=1):
+    def mailBodyFragment(self, indent=1, imgSeq: int = 0, imgTot: int = 0, **kwargs):
         title = self.info['title']
-        text = f"""{(indent) * "#"} {self.key} #{self.comicId} [{title}]({self.URL})
+        text = f"""{indent * "#"} ({imgSeq}/{imgTot}) {self.key} #{self.comicId} [{title}]({self.URL})
 ![{self.mediaURL}](cid:{self.mediaAttId})
 
 "{self.info['comment']}"
@@ -78,6 +97,11 @@ class Page(ComicPage):
 
 
 def findInterestingMetas(webContent: bs4.BeautifulSoup):
+    """
+    Metadata for page (meta's) contain all the interesting info (if present)
+    :param webContent:
+    :return:
+    """
     labs2extract = {'title', 'url'}
     result = dict()
 
@@ -88,6 +112,25 @@ def findInterestingMetas(webContent: bs4.BeautifulSoup):
         if label not in labs2extract:
             continue
         result[label] = entry.attrs['content']
+
+    return result
+
+
+def findInterestingMetasTheHardWay(webContent: bs4.BeautifulSoup, currMetas: dict):
+    """
+    If we couldn't extract information from meta tags on the head block, let's find info one by one
+    :param webContent:
+    :param currMetas:
+    :return:
+    """
+    result = currMetas.copy()
+    if 'title' not in currMetas:
+        auxTitle = webContent.head.find('title').text.lstrip('xkcd:').strip()
+        result['title'] = auxTitle
+    if 'url' not in currMetas:
+        auxText = webContent.find(string=re.compile('Permanent link to this comic: '))
+        auxLink = auxText.find_next('a')
+        result['url'] = auxLink.text.strip()
 
     return result
 

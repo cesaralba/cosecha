@@ -1,19 +1,22 @@
 import logging
 from abc import ABCMeta, abstractmethod
-from collections.abc import Callable
+from datetime import datetime
 from email.mime.image import MIMEImage
 from email.utils import make_msgid
 from os import makedirs, path
-from time import gmtime, strftime, struct_time
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 from urllib.parse import urlsplit
 
 import magic
 import validators
 
+from libs.Cosecha.Config import DAYSOFWEEK, TIMESTAMPFORMAT
+from libs.Cosecha.StoreManager import DBStorage
 from libs.Utils.Files import extensionFromType, loadYAML, saveYAML, shaData, shaFile
-from libs.Utils.Misc import stripPubDate
+from libs.Utils.Misc import getUTC, prepareBuilderPayloadObj
 from libs.Utils.Web import DownloadRawPage
+
+commit: Optional[Callable] = None
 
 logger = logging.getLogger()
 
@@ -30,15 +33,16 @@ class ComicPage(metaclass=ABCMeta):
 
         self.URL: str = auxURL
         self.key: str = auxKey
-        self.timestamp: struct_time = gmtime()
+        self.timestamp: datetime = getUTC()
         self.comicDate: Optional[str] = None  # Date from page (if nay)
-        self.comicId: Optional[str] = None  # Any identifier related to page (if any)
-        self.mediaURL: Optional[str] = None
+        self.comicId: Optional[str] = kwargs.get('comicId', None)  # Any identifier related to page (if any)
+        self.mediaURL: Optional[str] = kwargs.get('mediaURL', None)
         self.data: Optional[bytes] = None  # Actual image
         self.mediaHash: Optional[str] = None
         self.mediaAttId: Optional[str] = None
         self.mimeType: Optional[str] = None
-        self.info: dict = {'key': self.key}  # Dict containing metadata related to page (alt text, title...)
+        self.info: dict = dict(**{'key': self.key}, **(
+                kwargs.get('info', {})))  # Dict containing metadata related to page (alt text, title...)
         self.otherInfo: dict = {}
         self.saveFilePath: Optional[str] = None
         self.saveMetadataPath: Optional[str] = None
@@ -52,7 +56,9 @@ class ComicPage(metaclass=ABCMeta):
     def __str__(self):
         dataStr = f"[{self.size()}b]" if self.data else "No data"
         idStr = f"{self.comicId}"
-        result = f"Comic '{self.key}' [{idStr}] {self.URL} -> {self.mediaURL} {dataStr}"
+        dateStr = f" ({self.dayWeek()})" if self.datePub() else ""
+
+        result = f"Comic '{self.key}' [{idStr}] {self.URL} -> {self.mediaURL} {dataStr}{dateStr}"
 
         return result
 
@@ -62,6 +68,18 @@ class ComicPage(metaclass=ABCMeta):
         if self.data is None:
             return None
         return len(self.data)
+
+    def datePub(self) -> Optional[datetime]:
+        if not self.comicDate:
+            return None
+        if 'datetimePub' not in self.otherInfo:
+            self.otherInfo['datetimePub'] = datetime.strptime(self.comicDate, self.DATEFORMAT)
+
+        return self.otherInfo['datetimePub']
+
+    def dayWeek(self):
+
+        return DAYSOFWEEK[self.otherInfo['datetimePub'].isocalendar().weekday]
 
     @abstractmethod
     def downloadPage(self):
@@ -77,7 +95,8 @@ class ComicPage(metaclass=ABCMeta):
             raise ValueError(f"Unable to find media {self.URL}")
 
         img = DownloadRawPage(self.mediaURL, here=self.URL, allow_redirects=True)
-        self.timestamp = self.info['timestamp'] = strftime("%Y%m%d-%H%M%S %z", img.timestamp)
+        self.timestamp = img.timestamp
+        self.info['timestamp'] = img.timestamp.strftime(TIMESTAMPFORMAT)
         self.data = img.data
         self.info['mediaURL'] = self.mediaURL = img.source
         self.info['mediaHash'] = self.mediaHash = shaData(img.data)
@@ -138,20 +157,20 @@ class ComicPage(metaclass=ABCMeta):
         IMPORTANT: Field DATEFORMAT must be defined in the class or an exception will raise
         :return: a list with elements that will be added to the path to store elements (metadata & images for now)
         """
-        year, _, _, _, _, _ = stripPubDate(self.comicDate, self.DATEFORMAT)
-        pathList = [self.key, year]
+        year = self.datePub().year
+        pathList = [self.key, f"{year}"]
 
         return pathList
 
-    def saveFiles(self, imgFolder: str, metadataFolder: str):
+    def saveFiles(self, imgFolder: str, metadataFolder: str, dbStore: Optional[DBStorage] = None, storeJSON: bool = True
+                  ):
         if self.data is None:
             raise ValueError("saveFile: empty file")
 
         dataFullPath = path.join(imgFolder, *(self.dataPath()))
         makedirs(dataFullPath, mode=0o755, exist_ok=True)
         dataFilename = path.join(dataFullPath, self.dataFilename())
-        self.info['filename'] = self.dataFilename()
-        self.info['fullFilename'] = dataFilename
+        self.info['fname'] = self.dataFilename()
 
         with open(dataFilename, "wb") as bin_file:
             bin_file.write(self.data)
@@ -159,40 +178,68 @@ class ComicPage(metaclass=ABCMeta):
 
         self.updateInfoLinks()
         self.updateOtherInfo()
-        metaFullPath = path.join(metadataFolder, *(self.metadataPath()))
-        makedirs(metaFullPath, mode=0o755, exist_ok=True)
-        metadataFilename = path.join(metaFullPath, self.metadataFilename())
-        saveYAML(self.info, metadataFilename)
 
-        self.saveMetadataPath = metadataFilename
+        if storeJSON:
+            metaFullPath = path.join(metadataFolder, *(self.metadataPath()))
+            makedirs(metaFullPath, mode=0o755, exist_ok=True)
+            metadataFilename = path.join(metaFullPath, self.metadataFilename())
+            self.saveMetadataPath = metadataFilename
 
-    def exists(self, imgFolder: str, metadataFolder: str) -> bool:
+            saveYAML(self.info, metadataFilename)
+
+        if dbStore is not None:
+            global commit
+
+            if commit is None:
+                commit = dbStore.module.commit
+
+        self.updateDBmetadataRecord(dbStore=dbStore)
+
+    def exists(self, imgFolder: str, metadataFolder: str, dbStore: Optional[DBStorage] = None, storeJSON: bool = True
+               ) -> bool:
+        global commit
+
         metadataFilename = path.join(metadataFolder, *(self.metadataPath()), self.metadataFilename())
         dataPath = path.join(imgFolder, *(self.dataPath()))
 
-        if not path.exists(metadataFilename):
+        metadata = dict()
+        if dbStore is not None:
+            if commit is None:
+                commit = dbStore.module.commit
+            try:
+                record = dbStore.obj.ImageMetadata[self.key, self.id]
+                metadata = record.to_dict()
+            except dbStore.obj.RowNotFound as exc:
+                # We can live with that, there is no data, let's try files
+                pass
+        if (not metadata):
+            if storeJSON:
+                if not path.exists(metadataFilename):
+                    return False
+                metadata = loadYAML(metadataFilename)
+            else:
+                return False
+        if not metadata:
             return False
-
-        metadata = loadYAML(metadataFilename)
 
         if 'fullFilename' in metadata and path.exists(metadata['fullFilename']):  # We have file locations in metadata
             result = shaFile(metadata['fullFilename']) == metadata.get('mediaHash')
             expectedPath = path.dirname(metadata['fullFilename'])
             if path.realpath(expectedPath) != path.realpath(dataPath):
-                logging.warning(
-                        f"File {metadata['fullFilename']} location {expectedPath} is not where it was expected "
-                        f"{dataPath}")
+                logging.warning(f"File {metadata['fullFilename']} location {expectedPath} is not where it was expected "
+                                f"{dataPath}")
             return result
-        elif 'filename' in metadata and path.exists(path.join(dataPath, metadata['filename'])):  # Id
-            wrkFileName = path.join(dataPath, metadata['filename'])
-            result = shaFile(wrkFileName) == metadata.get('mediaHash')
-            return result
+        elif ('filename' in metadata or 'fname' in metadata):
+            fName = metadata.get('fname', metadata.get('filename', None))
+            workingPath = path.join(dataPath, fName)
+            if path.exists(workingPath):  # Id
+                result = shaFile(workingPath) == metadata.get('mediaHash')
+                return result
         else:  # We have to compose name
             dataFilename = self.dataFilename()
             if not dataFilename:
-                logging.warning(
-                        f"{self.key}: Unable to calculate comic filename for '{self.comicId}' with existing "
-                        f"information")
+                logging.warning(f"{self.key}: Unable to calculate comic filename for '{self.comicId}' with existing "
+                                f"information")
                 return False
         fullFilename = path.join(dataPath, self.dataFilename())
 
@@ -217,8 +264,8 @@ class ComicPage(metaclass=ABCMeta):
             ext = extensionFromType(self.mimeType).lower()
         return ext
 
-    def mailBodyFragment(self, indent=1):
-        text = f"""{(indent) * "#"} [{self.key} {self.comicId}]({self.URL})
+    def mailBodyFragment(self, indent=1, imgSeq: int = 0, imgTot: int = 0):
+        text = f"""{(indent) * "#"} ({imgSeq}/{imgTot}) [{self.key} {self.comicId}]({self.URL})
 ![{self.mediaURL}](cid:{self.mediaAttId})"""
 
         return text
@@ -235,4 +282,36 @@ class ComicPage(metaclass=ABCMeta):
 
         return part
 
-    # TODO: updateDB  # TODO: mailContent
+    def createDBmetadataRecord(self, dbStore: DBStorage):
+
+        newData = prepareBuilderPayloadObj(source=self, dest=dbStore.obj.ImageMetadata)
+        newData['mediaSize'] = self.size()
+
+        for k in newData:
+            newData['info'].pop(k, None)
+        dbData = dbStore.obj.ImageMetadata(**newData)
+        commit()
+
+        return dbData
+
+    def updateDBmetadataRecord(self, dbStore: DBStorage):
+        try:
+            currRecord = dbStore.obj.ImageMetadata[self.key, self.comicId]
+
+            getChanges = lambda k: getattr(self, k) != getattr(currRecord, k)
+
+            newElems = prepareBuilderPayloadObj(source=self, dest=dbStore.obj.ImageMetadata, condition=getChanges)
+            newElems['mediaSize'] = self.size()
+            newElems['fname'] = self.info['filename']
+            for k in newElems:
+                newElems['info'].pop(k, None)
+
+            currRecord.set(**newElems)
+            commit()
+
+            result = dbStore.obj.ImageMetadata[self.key, self.comicId]
+            return result
+
+        except dbStore.obj.RowNotFound as exc:
+            newRecord = self.createDBmetadataRecord(dbStore=dbStore)
+            return newRecord

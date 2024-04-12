@@ -5,6 +5,7 @@ from typing import Optional
 import bs4
 
 from libs.Cosecha.ComicPage import ComicPage
+from libs.Cosecha.Config import SMBCDATE
 from libs.Utils.Misc import datePub2Id
 from libs.Utils.Web import DownloadPage, MergeURL
 
@@ -13,7 +14,7 @@ KEY = "smbc"
 
 
 class Page(ComicPage):
-    DATEFORMAT = '%Y-%m-%dT%H:%M:%S%z'
+    DATEFORMAT = SMBCDATE
     IDFROMDATE = '%Y%m%dT%H%M'
 
     def __init__(self, **kwargs):
@@ -25,7 +26,9 @@ class Page(ComicPage):
     def __str__(self):
         dataStr = f"[{self.size()}b]" if self.data else "No data"
         idStr = f"{self.comicId}"
-        result = f"Comic '{self.key}' [{idStr}] {self.URL} -> {self.info['title']} {dataStr}"
+        dateStr = f" ({self.dayWeek()})" if self.datePub() else ""
+
+        result = f"Comic '{self.key}' [{idStr}] {self.URL} -> {self.info['title']} {dataStr}{dateStr}"
 
         return result
 
@@ -78,9 +81,11 @@ class Page(ComicPage):
         result = f"{self.key}.{intId}.{ext}"
         return result
 
-    def mailBodyFragment(self, indent=1):
+    def mailBodyFragment(self, indent=1, imgSeq: int = 0, imgTot: int = 0, **kwargs):
         title = self.info['title']
-        text = f"""{(indent) * "#"} {self.key} #{self.comicId} [{title}]({self.URL})
+        dateStr = f" ({self.dayWeek()})" if self.datePub() else ""
+
+        text = f"""{indent * "#"} ({imgSeq}/{imgTot}) {self.key} #{self.comicId}{dateStr} [{title}]({self.URL})
 ![{self.mediaURL}](cid:{self.mediaAttId})
 
 "{self.info['comment']}" (_by {self.info['author']}_)

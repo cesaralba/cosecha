@@ -1,12 +1,14 @@
 import logging
 import os.path
 import re
+from typing import List
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import bs4
 from markdownify import markdownify
 
 from libs.Cosecha.ComicPage import ComicPage
+from libs.Cosecha.Config import IDPATHDIVIDER
 from libs.Utils.Files import getSaneFilenameStr
 from libs.Utils.Web import DownloadPage
 
@@ -20,7 +22,7 @@ class Page(ComicPage):
         auxKey = kwargs.pop('key', None) or KEY
         auxURL = kwargs.pop('URL', None) or URLBASE
 
-        super().__init__(key=auxKey, URL=auxURL,**kwargs)
+        super().__init__(key=auxKey, URL=auxURL, **kwargs)
 
     def __str__(self):
         dataStr = f"[{self.size()}b]" if self.data else "No data"
@@ -57,6 +59,19 @@ class Page(ComicPage):
         # Will do if need arises
         pass
 
+    def sharedPath(self) -> List[str]:
+        """
+        Produces a path for files
+        :return: a list with elements that will be added to the path to store elements (metadata & images for now)
+        """
+        idGrouper = (int(self.comicId) // IDPATHDIVIDER) * IDPATHDIVIDER
+        pathList = [self.key, f"{idGrouper:04}"]
+
+        return pathList
+
+    dataPath = sharedPath
+    metadataPath = sharedPath
+
     def dataFilename(self):
         ext = self.fileExtension()
         intId = int(self.comicId)
@@ -73,13 +88,13 @@ class Page(ComicPage):
         result = f"{self.key}.{intId:04}.{ext}"
         return result
 
-    def mailBodyFragment(self, indent=1):
+    def mailBodyFragment(self, indent=1, imgSeq: int = 0, imgTot: int = 0, **kwargs):
         title = self.info['title']
         commentsStr = ""
         if 'comments' in self.info:
             commentsStr = "\n".join(map(lambda c: f"* {c}", self.info['comments']))
 
-        text = f"""{(indent) * "#"} {self.key} #{self.comicId} [{title}]({self.URL})
+        text = f"""{indent * "#"} ({imgSeq}/{imgTot}) {self.key} #{self.comicId} [{title}]({self.URL})
 ![{self.mediaURL}](cid:{self.mediaAttId})
 
 {commentsStr}
