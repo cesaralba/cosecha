@@ -29,7 +29,7 @@ TIMESTAMPFORMAT = "%Y%m%d-%H%M%S %z"
 TIMESTAMPFORMATORM = "%Y-%m-%d %H:%M:%S%z"  # 2024-04-04 06:31:07+00:00
 GOCOMICSDATE = "%Y-%m-%d"
 SMBCDATE = '%Y-%m-%dT%H:%M:%S%z'
-
+DAYSOFWEEK = {1: "Lun", 2: "Mar", 3: "Mie", 4: "Jue", 5: "Vie", 6: "Sab", 7: "Dom"}
 IDPATHDIVIDER: int = 500
 
 
