@@ -10,10 +10,10 @@ from urllib.parse import urlsplit
 import magic
 import validators
 
-from libs.Cosecha.Config import TIMESTAMPFORMAT
+from libs.Cosecha.Config import DAYSOFWEEK, TIMESTAMPFORMAT
 from libs.Cosecha.StoreManager import DBStorage
 from libs.Utils.Files import extensionFromType, loadYAML, saveYAML, shaData, shaFile
-from libs.Utils.Misc import getUTC, prepareBuilderPayloadObj, stripPubDate
+from libs.Utils.Misc import getUTC, prepareBuilderPayloadObj
 from libs.Utils.Web import DownloadRawPage
 
 commit: Optional[Callable] = None
@@ -42,7 +42,7 @@ class ComicPage(metaclass=ABCMeta):
         self.mediaAttId: Optional[str] = None
         self.mimeType: Optional[str] = None
         self.info: dict = dict(**{'key': self.key}, **(
-            kwargs.get('info', {})))  # Dict containing metadata related to page (alt text, title...)
+                kwargs.get('info', {})))  # Dict containing metadata related to page (alt text, title...)
         self.otherInfo: dict = {}
         self.saveFilePath: Optional[str] = None
         self.saveMetadataPath: Optional[str] = None
@@ -56,7 +56,9 @@ class ComicPage(metaclass=ABCMeta):
     def __str__(self):
         dataStr = f"[{self.size()}b]" if self.data else "No data"
         idStr = f"{self.comicId}"
-        result = f"Comic '{self.key}' [{idStr}] {self.URL} -> {self.mediaURL} {dataStr}"
+        dateStr = f" ({self.dayWeek()})" if self.datePub() else ""
+
+        result = f"Comic '{self.key}' [{idStr}] {self.URL} -> {self.mediaURL} {dataStr}{dateStr}"
 
         return result
 
@@ -66,6 +68,18 @@ class ComicPage(metaclass=ABCMeta):
         if self.data is None:
             return None
         return len(self.data)
+
+    def datePub(self) -> Optional[datetime]:
+        if not self.comicDate:
+            return None
+        if 'datetimePub' not in self.otherInfo:
+            self.otherInfo['datetimePub'] = datetime.strptime(self.comicDate, self.DATEFORMAT)
+
+        return self.otherInfo['datetimePub']
+
+    def dayWeek(self):
+
+        return DAYSOFWEEK[self.otherInfo['datetimePub'].isocalendar().weekday]
 
     @abstractmethod
     def downloadPage(self):
@@ -143,8 +157,8 @@ class ComicPage(metaclass=ABCMeta):
         IMPORTANT: Field DATEFORMAT must be defined in the class or an exception will raise
         :return: a list with elements that will be added to the path to store elements (metadata & images for now)
         """
-        year, _, _, _, _, _ = stripPubDate(self.comicDate, self.DATEFORMAT)
-        pathList = [self.key, year]
+        year = self.datePub().year
+        pathList = [self.key, f"{year}"]
 
         return pathList
 
