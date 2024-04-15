@@ -132,7 +132,6 @@ def main(config):
         cosecha.prepare()
 
         key2crawler = {crwl.key: crwl for crwl in cosecha.crawlers}
-        print("CAP", key2crawler)
         metadataBase = cosecha.globalCFG.metadataD()
 
         metadataClass = cosecha.dataStore.obj.ImageMetadata
