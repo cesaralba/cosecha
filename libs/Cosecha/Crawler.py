@@ -6,6 +6,7 @@ from time import struct_time
 from typing import Callable, Dict, List, Optional
 
 import validators
+from requests import HTTPError
 
 from libs.Utils.Files import loadYAML, saveYAML
 from libs.Utils.Misc import createPath, getUTC, UTC2local
@@ -102,8 +103,13 @@ class Crawler:
                     self.obj = self.module.Page(key=self.key, URL=self.obj.linkNext)
                 else:
                     break
+            except HTTPError as exc:
+                logging.error(
+                        f"Crawler(crawl) '{self.name}': Problems downloading media {self.obj.URL}: {self.obj.mediaURL} "
+                        f"{exc}")
+                break
             except Exception as exc:
-                logging.error(f"Crawler(crawl)'{self.name}': problem:{type(exc)} {exc}")
+                logging.error(f"Crawler(crawl) '{self.name}': problem:{type(exc)} {exc}")
                 logging.exception(exc, stack_info=True)
                 break
 
@@ -125,8 +131,12 @@ class Crawler:
                 self.results.append(self.obj)
             else:
                 logging.debug(f"'{self.name}': already downloaded")
+        except HTTPError as exc:
+            logging.error(
+                    f"Crawler(poll) '{self.name}': Problems downloading media {self.obj.URL}: {self.obj.mediaURL} "
+                    f"{exc}")
         except Exception as exc:
-            logging.error(f"Crawler(poll)'{self.name}': problem:{type(exc)} {exc}")
+            logging.error(f"Crawler(poll) '{self.name}': problem:{type(exc)} {exc}")
             logging.exception(exc, stack_info=True)
 
     def checkPollSlot(self, now: struct_time) -> bool:
@@ -250,7 +260,8 @@ class CrawlerState:
             except FileNotFoundError as exc:
                 logging.warning(f"Unable to find state for {self.runnerName}. Will act as if it were the first time.")
             except UnsupportedOperation as exc:
-                logging.warning(f"Problems reading state for {self.runnerName}. Will act as if it were the first time.", exc)
+                logging.warning(
+                    f"Problems reading state for {self.runnerName}. Will act as if it were the first time. {exc}")
 
         return self
 
