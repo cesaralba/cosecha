@@ -1,18 +1,13 @@
 import logging
 import os
 import sys
-from collections import defaultdict, OrderedDict
+from collections import OrderedDict
 from datetime import datetime
 from typing import Callable, Optional
 
 import dateutil.parser as dateparse
 from configargparse import ArgParser
-
-from libs.Cosecha.ComicPage import ComicPage
-from libs.Cosecha.Harvest import Harvest
-from libs.Cosecha.StoreManager import DBStorage
-from libs.Utils.Files import loadYAML
-from libs.Utils.Misc import prepareBuilderPayloadDict
+from requests import HTTPError
 
 logger = logging.getLogger()
 
@@ -67,6 +62,8 @@ KEYS2IGNORE = {'fullFilename', 'saveMetadataPath', 'image'}
 KEYTRANSLATOR = {'id': 'comicId', 'url': 'URL', 'filename': 'fname', 'urlImg': 'mediaURL', 'datePublished': 'comicDate',
                  }
 
+FAILEDDATA = list()
+
 
 def set2hashKey(s: set) -> str:
     return ",".join(sorted(s))
@@ -77,7 +74,9 @@ def parseDates(d: str) -> datetime:
     return res
 
 
-def createDBmetadataRecord(data, dbStore: DBStorage):
+def createDBmetadataRecord(data, dbStore):
+    from libs.Utils.Misc import prepareBuilderPayloadDict
+
     newData = prepareBuilderPayloadDict(source=data, dest=dbStore.obj.ImageMetadata)
 
     for k in newData:
@@ -88,7 +87,9 @@ def createDBmetadataRecord(data, dbStore: DBStorage):
     return dbData
 
 
-def updateDBmetadataRecord(data, dbStore: DBStorage):
+def updateDBmetadataRecord(data, dbStore):
+    from libs.Utils.Misc import prepareBuilderPayloadDict
+
     try:
         currRecord = dbStore.obj.ImageMetadata[data['key'], data['comicId']]
 
@@ -113,6 +114,10 @@ KEYTRANSLATORFUNC = {'timestamp': parseDates}
 
 
 def main(config):
+    from libs.Cosecha.ComicPage import ComicPage
+    from libs.Cosecha.Harvest import Harvest
+    from libs.Utils.Files import loadYAML
+
     global commit
 
     config.ignorePollInterval = True
@@ -127,7 +132,6 @@ def main(config):
         cosecha.prepare()
 
         key2crawler = {crwl.key: crwl for crwl in cosecha.crawlers}
-        print("CAP", key2crawler)
         metadataBase = cosecha.globalCFG.metadataD()
 
         metadataClass = cosecha.dataStore.obj.ImageMetadata
@@ -167,7 +171,14 @@ def main(config):
                     missingKeys = fieldNames.difference(newHash.keys())
                     if missingKeys:
                         imgDownloader: ComicPage = key2crawler[key].module.Page(**newHash)
-                        imgDownloader.downloadMedia()
+                        try:
+                            imgDownloader.downloadMedia()
+                        except HTTPError:
+                            logging.error(
+                                f"{fullFile}: Problems downloading media {imgDownloader.URL}: {imgDownloader.mediaURL}")
+                            FAILEDDATA.append(fullFile)
+                            continue
+
                         if 'mediaSize' in missingKeys:
                             newHash['mediaSize'] = imgDownloader.size()
                         if 'fname' in missingKeys:
@@ -177,10 +188,17 @@ def main(config):
 
                     print(f"Processed: {fullPath} -> {newHash['key']},{newHash['comicId']}")
 
+    if FAILEDDATA:
+        print("Failed files:")
+        print("\n".join(FAILEDDATA))
+        print("\n")
+
+
 if __name__ == '__main__':
 
-    sys.run_local = os.path.abspath(__file__)
-    base = os.path.dirname(sys.run_local)
+    auxLocation = os.path.abspath(__file__)
+    base = os.path.dirname(auxLocation)
+
     src = os.path.dirname(base)
 
     if src not in sys.path:
