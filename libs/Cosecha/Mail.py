@@ -1,6 +1,7 @@
 import logging
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from math import ceil, log10
 from typing import Dict, List
 
 import markdown
@@ -128,7 +129,8 @@ class MailMessage:
         finalPlain = "\n".join(resultPlain)
         finalHTML = markdown.markdown(finalPlain)
 
-        fullSubject = f"{subject} {self.mid}/{self.mcnt}"
+        auxMID = f"{self.mid}".zfill(ceil(log10(self.mcnt)))
+        fullSubject = f"{subject} {auxMID}/{self.mcnt}"
 
         main_msg = MIMEMultipart("related")
 
