@@ -3,7 +3,7 @@
 set -eu
 
 #https://www.putorius.net/lock-files-bash-scripts.html
-LOCKFILE=/var/tmp/actualizaCosecha.lock
+LOCKFILE=/tmp/actualizaCosecha.lock
 if { set -C; >${LOCKFILE}; }; then
        trap "rm -f ${LOCKFILE}" EXIT
 else
