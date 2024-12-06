@@ -63,7 +63,7 @@ class Harvest:
                 self.prepareStorage()
             except OSError as e:
                 logging.error(f"Failed when preparing harvest: {e}")
-                print(f"Failed when preparing storage. Maybe you need to add '--initialize-db': {e}", file=sys.stderr)
+                print(f"Failed when preparing storage. Maybe you need to add '--initialize-db'. Exc: '{e}'", file=sys.stderr)
                 sys.exit(1)
 
             session_manager = self.dataStore.module.session_manager

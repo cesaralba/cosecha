@@ -105,8 +105,8 @@ class Crawler:
                     break
             except HTTPError as exc:
                 logging.error(
-                    f"Crawler(crawl) '{self.name}': Problems downloading media {self.obj.URL}: {self.obj.mediaURL} "
-                    f"{exc}")
+                    f"Crawler(crawl) '{self.name}': Problems downloading media '{self.obj.URL}': '{self.obj.mediaURL}' "
+                    f"Exc: '{exc}'")
                 break
             except Exception as exc:
                 logging.error(f"Crawler(crawl) '{self.name}': problem:{type(exc)} {exc}")
