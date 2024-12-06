@@ -1,3 +1,4 @@
+import logging
 import re
 from typing import List, Optional
 
@@ -47,6 +48,10 @@ class Page(ComicPage):
         self.linkLast = links.get('last')
 
         infoImg = findComicImg(pagBase.data, title=metas['title'], here=self.URL)
+        self.timestamp = pagBase.timestamp
+
+        if infoImg is None:
+            return
         self.info['comment'] = infoImg['comment']
         self.info['titleStr'] = infoImg['titleStr']
         self.mediaURL = infoImg['urlImg']
@@ -187,9 +192,12 @@ def findComicImg(webContent: bs4.BeautifulSoup, title: Optional[str], here: Opti
     result = dict()
 
     imgLink = webContent.find('img', {'alt': title})
+    if imgLink is None:
+        logging.error(f"findComicImg: unable to find img with title '{title}' in '{here}'. Skipping.")
+        return None  # raise ValueError(f"findComicImg: unable to find img with title '{title}' in '{here}'")
     result['comment'] = imgLink.attrs['title']
     dest = imgLink.attrs['src']
-    result['urlImg'] = MergeURL(here, dest)
+    result['urlImg'] = mergeURL(here, dest)
 
     pat = r'/(?P<titleStr>[^./]+)\.\w+$'
     match = re.search(pat, dest)
