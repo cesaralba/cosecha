@@ -1,7 +1,8 @@
 from abc import ABCMeta, abstractmethod
 
+from CAPcore.Python import loadModule
+
 from .Config import globalConfig, storeConfig
-from ..Utils.Python import LoadModule
 
 commit = None
 session_manager = None
@@ -38,7 +39,7 @@ class DBStorage:
     def __init__(self, globalCFG: globalConfig):
         self.globalCFG: globalConfig = globalCFG
         self.storeCFG: storeConfig = globalCFG.storeCFG
-        self.fullModuleName, self.module = LoadModule(moduleName=self.storeCFG.backend,
+        self.fullModuleName, self.module = loadModule(moduleName=self.storeCFG.backend,
                                                       classLocation="libs.Cosecha.Backends")
         self.obj = self.module.CosechaStore(globalCFG=self.globalCFG)
 

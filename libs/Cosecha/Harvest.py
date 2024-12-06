@@ -5,11 +5,12 @@ from email.mime.multipart import MIMEMultipart
 from time import gmtime, strftime
 from typing import Callable, List, Optional
 
+from CAPcore.Misc import getUTC
+
 from .Config import globalConfig, GMTIMEFORMATFORMAIL, runnerConfig
 from .Crawler import Crawler
 from .Mail import MailMessage
 from .StoreManager import DBStorage
-from ..Utils.Misc import getUTC
 
 session_manager: Optional[Callable] = None
 
@@ -81,9 +82,9 @@ class Harvest:
 
         if not self.globalCFG.runnersData:
             raise EnvironmentError(
-                    f"No configuration files found for runners. HomeDir: {self.globalCFG.homeDirectory()} Glob for "
-                    f"confs: "
-                    f"{self.globalCFG.runnersCFG}")
+                f"No configuration files found for runners. HomeDir: {self.globalCFG.homeDirectory()} Glob for "
+                f"confs: "
+                f"{self.globalCFG.runnersCFG}")
 
         dictRunners = self.globalCFG.allRunners()
         for runner in sorted(self.globalCFG.requiredRunners, key=lambda k: k.lower()):
@@ -123,8 +124,13 @@ class Harvest:
             if crawler.results:
                 for res in crawler.results:
                     try:
-                        res.saveFiles(self.globalCFG.imagesD(), self.globalCFG.metadataD(), self.dataStore,
-                                      self.globalCFG.storeJSON)
+                        if not res.saveFiles(self.globalCFG.imagesD(), self.globalCFG.metadataD(), self.dataStore,
+                                             self.globalCFG.storeJSON):
+                            if crawler.runnerCFG.breakIfFailedImage:
+                                raise ValueError(f"Unable to save image '{res}'. Dying")
+                            else:
+                                continue
+
                         crawler.state.updateFromImage(res)
                         crawler.state.store()
                         savedFiles.append(res)
@@ -229,9 +235,9 @@ class MailDelivery:
 
                     if (self.currMessage.size + image.size()) > self.mailMaxSize:
                         logging.warning(
-                                f"Image size ({image.size()}) exceeds maximum allowed limit ({self.mailMaxSize}). "
-                                f"Sending "
-                                f"anyway but it may not reach destination")
+                            f"Image size ({image.size()}) exceeds maximum allowed limit ({self.mailMaxSize}). "
+                            f"Sending "
+                            f"anyway but it may not reach destination")
                     self.currMessage.addImage(crawler, image, imageSeq=imagePerCrawlerCNT)
                 imagePerCrawlerCNT += 1
 

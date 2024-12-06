@@ -3,11 +3,11 @@ import re
 from typing import Optional
 
 import bs4
+from CAPcore.Misc import datePub2Id
+from CAPcore.Web import downloadPage, mergeURL
 
 from libs.Cosecha.ComicPage import ComicPage
 from libs.Cosecha.Config import SMBCDATE
-from libs.Utils.Misc import datePub2Id
-from libs.Utils.Web import DownloadPage, MergeURL
 
 URLBASE = "https://www.smbc-comics.com/"
 KEY = "smbc"
@@ -35,7 +35,7 @@ class Page(ComicPage):
     def downloadPage(self):
         self.info = dict()
 
-        pagBase = DownloadPage(self.URL)
+        pagBase = downloadPage(self.URL)
         self.timestamp = pagBase.timestamp
         metadata = findMetadataStruct(pagBase.data)
 
@@ -119,7 +119,7 @@ def findComicLinks(webContent: bs4.BeautifulSoup, here: Optional[str] = None):
         dest = item.attrs['href']
         if rel not in {'first', 'prev', 'next', 'last'}:
             raise ValueError(f"{item} '{rel}' It shouldn't have reached here")
-        destURL = MergeURL(here, dest)
+        destURL = mergeURL(here, dest)
 
         if destURL == here:
             continue
@@ -139,7 +139,7 @@ def findComicImg(webContent: bs4.BeautifulSoup, url: Optional[str], here: Option
 
     result['comment'] = imgLink.attrs['title']
     dest = imgLink.attrs['src']
-    result['urlImg'] = MergeURL(here, dest)
+    result['urlImg'] = mergeURL(here, dest)
 
     return result
 

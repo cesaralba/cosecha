@@ -130,6 +130,7 @@ class runnerConfig:
     initial: Optional[str] = '*last'
     batchSize: int = DEFAULTRUNNERBATCHSIZE
     pollInterval: Optional[str] = DEFAULTPOLLINTERVAL
+    breakIfFailedImage: bool = True
 
     def __post_init__(self):
         if not isinstance(self.batchSize, int):
@@ -147,8 +148,8 @@ class runnerConfig:
 
         if self.mode not in RUNNERVALIDMODES:
             problems.append(
-                    f"{self.__class__}:{self.filename} 'mode' has not a valid value '{self.mode}'. Valid modes are "
-                    f"{RUNNERVALIDMODES}")
+                f"{self.__class__}:{self.filename} 'mode' has not a valid value '{self.mode}'. Valid modes are "
+                f"{RUNNERVALIDMODES}")
 
         if not ((self.initial in RUNNERVALIDINITIALS) or (self.initial is None) or validators.url(self.initial)):
             problems.append(f"{self.__class__}:{self.filename} 'initial' has not a valid value '{self.initial}'. "
@@ -216,6 +217,7 @@ class globalConfig:
     printReport: bool = True
     printReportAlways: bool = False
     printDetailedReport: bool = False
+    breakIfFailedImage: bool = True
 
     @classmethod
     def createFromArgs(cls, args: Namespace):
