@@ -60,6 +60,7 @@ def main(config):
 
     cosecha.go()
 
+
     if config.printReportAlways or (config.printReport and len(cosecha)):
         cosecha.printSummary()
 

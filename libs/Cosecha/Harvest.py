@@ -1,5 +1,6 @@
 import logging
 import smtplib
+import sys
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from time import gmtime, strftime
@@ -58,7 +59,13 @@ class Harvest:
         self.startTime = datetime.now()
 
         if self.globalCFG.storeCFG:
-            self.prepareStorage()
+            try:
+                self.prepareStorage()
+            except OSError as e:
+                logging.error(f"Failed when preparing harvest: {e}")
+                print(f"Failed when preparing storage. Maybe you need to add '--initialize-db': {e}", file=sys.stderr)
+                sys.exit(1)
+
             session_manager = self.dataStore.module.session_manager
 
             with session_manager(immediate=True, optimistic=False, serializable=True, sql_debug=self.globalCFG.verbose,
