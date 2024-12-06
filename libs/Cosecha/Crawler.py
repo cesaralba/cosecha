@@ -6,6 +6,9 @@ from time import struct_time
 from typing import Callable, Dict, List, Optional
 
 import validators
+from CAPcore.Files import loadYAML, saveYAML
+from CAPcore.Misc import createPath, getUTC, UTC2local
+from CAPcore.Python import loadModule
 from requests import HTTPError
 
 from libs.Utils.Files import loadYAML, saveYAML
@@ -13,7 +16,6 @@ from libs.Utils.Misc import createPath, getUTC, UTC2local
 from .ComicPage import ComicPage
 from .Config import globalConfig, parseDatatime, runnerConfig, RUNNERVALIDPOLLINTERVALS
 from .StoreManager import DBStorage
-from ..Utils.Python import LoadModule
 
 commit: Optional[Callable] = None
 
@@ -26,7 +28,7 @@ class Crawler:
         self.name = self.runnerCFG.name
         self.state: CrawlerState = CrawlerState(runnerName=self.name, storePath=self.globalCFG.stateD(),
                                                 dbstore=self.dataStore, storeJSON=self.globalCFG.storeJSON).load()
-        self.fullModuleName, self.module = LoadModule(moduleName=self.runnerCFG.module,
+        self.fullModuleName, self.module = loadModule(moduleName=self.runnerCFG.module,
                                                       classLocation="libs.Cosecha.Sites")
         self.obj: ComicPage = self.module.Page(URL=self.state.lastURL, **dict(self.runnerCFG.data['RUNNER']))
         self.key: str = self.obj.key

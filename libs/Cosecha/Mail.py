@@ -5,11 +5,11 @@ from math import ceil, log10
 from typing import Dict, List
 
 import markdown
+from CAPcore.Misc import listize
 
 from .ComicPage import ComicPage
 from .Config import mailConfig
 from .Crawler import Crawler
-from ..Utils.Misc import listize
 
 
 class MailBundle:

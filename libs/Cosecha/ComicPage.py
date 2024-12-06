@@ -9,12 +9,12 @@ from urllib.parse import urlsplit
 
 import magic
 import validators
+from CAPcore.Files import extensionFromType, loadYAML, saveYAML, shaData, shaFile
+from CAPcore.Misc import getUTC, prepareBuilderPayloadObj
+from CAPcore.Web import downloadRawPage
 
 from libs.Cosecha.Config import DAYSOFWEEK, TIMESTAMPFORMAT
 from libs.Cosecha.StoreManager import DBStorage
-from libs.Utils.Files import extensionFromType, loadYAML, saveYAML, shaData, shaFile
-from libs.Utils.Misc import getUTC, prepareBuilderPayloadObj
-from libs.Utils.Web import DownloadRawPage
 
 commit: Optional[Callable] = None
 
@@ -94,7 +94,7 @@ class ComicPage(metaclass=ABCMeta):
         if self.mediaURL is None:
             raise ValueError(f"Unable to find media {self.URL}")
 
-        img = DownloadRawPage(self.mediaURL, here=self.URL, allow_redirects=True)
+        img = downloadRawPage(self.mediaURL, here=self.URL, allow_redirects=True)
         self.timestamp = img.timestamp
         self.info['timestamp'] = img.timestamp.strftime(TIMESTAMPFORMAT)
         self.data = img.data
@@ -105,7 +105,7 @@ class ComicPage(metaclass=ABCMeta):
 
     def getRaw(self, sanitizer: Optional[Callable[[bytes], bytes]] = None):
         """ Commodity function for development. Returns the page as-is (without parsing nor preprocessing)"""
-        result = DownloadRawPage(self.URL, sanitizer=sanitizer)
+        result = downloadRawPage(self.URL, sanitizer=sanitizer)
         return result
 
     def updateLinksFromDict(self, links: Dict[str, str]):

@@ -5,11 +5,12 @@ from email.mime.multipart import MIMEMultipart
 from time import gmtime, strftime
 from typing import Callable, List, Optional
 
+from CAPcore.Misc import getUTC
+
 from .Config import globalConfig, GMTIMEFORMATFORMAIL, runnerConfig
 from .Crawler import Crawler
 from .Mail import MailMessage
 from .StoreManager import DBStorage
-from ..Utils.Misc import getUTC
 
 session_manager: Optional[Callable] = None
 

@@ -2,10 +2,10 @@ import re
 from typing import List, Optional
 
 import bs4
+from CAPcore.Web import downloadPage, mergeURL
 
 from libs.Cosecha.ComicPage import ComicPage
 from libs.Cosecha.Config import IDPATHDIVIDER
-from libs.Utils.Web import DownloadPage, MergeURL
 
 URLBASE = "https://xkcd.com/"
 KEY = "xkcd"
@@ -30,7 +30,7 @@ class Page(ComicPage):
         reqMetas = {'title', 'url'}
         self.info = dict()
 
-        pagBase = DownloadPage(self.URL)
+        pagBase = downloadPage(self.URL)
         metas = findInterestingMetas(pagBase.data)
 
         if reqMetas.difference(set(metas.keys())):
@@ -50,7 +50,6 @@ class Page(ComicPage):
         self.info['comment'] = infoImg['comment']
         self.info['titleStr'] = infoImg['titleStr']
         self.mediaURL = infoImg['urlImg']
-        self.timestamp = pagBase.timestamp
 
     def updateOtherInfo(self):
         # Will do if need arises
@@ -164,7 +163,7 @@ def findComicLinks(webContent: bs4.BeautifulSoup, here: Optional[str] = None, th
         elif dest in {'/'}:
             continue
 
-        destURL = MergeURL(here, dest)
+        destURL = mergeURL(here, dest)
 
         if destURL == here:
             continue

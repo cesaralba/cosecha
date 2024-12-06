@@ -5,12 +5,12 @@ from typing import List
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import bs4
+from CAPcore.Files import getSaneFilenameStr
+from CAPcore.Web import downloadPage
 from markdownify import markdownify
 
 from libs.Cosecha.ComicPage import ComicPage
 from libs.Cosecha.Config import IDPATHDIVIDER
-from libs.Utils.Files import getSaneFilenameStr
-from libs.Utils.Web import DownloadPage
 
 URLBASE = "https://phdcomics.com/"
 KEY = "PhD"
@@ -34,7 +34,7 @@ class Page(ComicPage):
     def downloadPage(self):
         self.info = dict()
 
-        pagBase = DownloadPage(self.URL, sanitizer=sanitizer)
+        pagBase = downloadPage(self.URL, sanitizer=sanitizer)
         self.timestamp = pagBase.timestamp
         metadata = findMetas(pagBase.data)
         for k in ['urlImg', 'title', 'id', 'url']:
