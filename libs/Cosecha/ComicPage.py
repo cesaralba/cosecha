@@ -92,7 +92,7 @@ class ComicPage(metaclass=ABCMeta):
             self.downloadPage()
         # No, there is no way to find media. We give up
         if self.mediaURL is None:
-            logging.error(f"Unable to find media {self.URL}")
+            logging.error(f"Unable to find media in '{self.URL}'")
             return
 
 
