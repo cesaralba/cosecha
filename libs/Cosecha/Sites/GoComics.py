@@ -5,11 +5,11 @@ from typing import Optional
 from urllib.parse import urljoin
 
 import bs4
+from CAPcore.Misc import datePub2Id
+from CAPcore.Web import downloadPage, findObjectsWithAttributes
 
 from libs.Cosecha.ComicPage import ComicPage
 from libs.Cosecha.Config import GOCOMICSDATE
-from libs.Utils.Misc import datePub2Id
-from libs.Utils.Web import DownloadPage, findObjectsWithAttributes
 
 URLBASE = 'https://www.gocomics.com'
 
@@ -40,7 +40,7 @@ class Page(ComicPage):
     def downloadPage(self):
         self.info = dict()
 
-        pagBase = DownloadPage(self.URL)
+        pagBase = downloadPage(self.URL)
         self.timestamp = pagBase.timestamp
 
         divNav = pagBase.data.find('nav', attrs={'class': 'content-section-padded-sm'})
@@ -49,7 +49,7 @@ class Page(ComicPage):
         comicLink = divNav.find('a', attrs={'data-link': 'comics'})
         comicPageURL = urljoin(self.URL, comicLink['href'])
         if 'active' not in comicLink.attrs['class']:
-            pagBase = DownloadPage(comicPageURL)
+            pagBase = downloadPage(comicPageURL)
             self.URL = comicPageURL
 
         metadata = findMetadata(pagBase.data)

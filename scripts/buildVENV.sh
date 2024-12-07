@@ -62,7 +62,7 @@ else
 fi
 
 source ${ACTIVATIONSCR}  || soLong "Problemas cargando ${ACTIVATIONSCR}"
-pip install -q -U pip wheel
+python -m pip install -q -U pip wheel
 
 
 PARAMREQS=""

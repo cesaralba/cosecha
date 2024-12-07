@@ -12,7 +12,7 @@ logger = logging.getLogger()
 
 
 def parse_arguments():
-    from libs.Utils.Logging import prepareLogger
+    from CAPcore.Logging import prepareLogger
     from libs.Cosecha.Config import globalConfig
 
     descriptionTXT = "Configuration to retrieve comics"

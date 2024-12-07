@@ -9,12 +9,12 @@ from urllib.parse import urlsplit
 
 import magic
 import validators
+from CAPcore.Files import extensionFromType, loadYAML, saveYAML, shaData, shaFile
+from CAPcore.Misc import getUTC, prepareBuilderPayloadObj
+from CAPcore.Web import downloadRawPage
 
 from libs.Cosecha.Config import DAYSOFWEEK, TIMESTAMPFORMAT
 from libs.Cosecha.StoreManager import DBStorage
-from libs.Utils.Files import extensionFromType, loadYAML, saveYAML, shaData, shaFile
-from libs.Utils.Misc import getUTC, prepareBuilderPayloadObj
-from libs.Utils.Web import DownloadRawPage
 
 commit: Optional[Callable] = None
 
@@ -42,7 +42,7 @@ class ComicPage(metaclass=ABCMeta):
         self.mediaAttId: Optional[str] = None
         self.mimeType: Optional[str] = None
         self.info: dict = dict(**{'key': self.key}, **(
-                kwargs.get('info', {})))  # Dict containing metadata related to page (alt text, title...)
+            kwargs.get('info', {})))  # Dict containing metadata related to page (alt text, title...)
         self.otherInfo: dict = {}
         self.saveFilePath: Optional[str] = None
         self.saveMetadataPath: Optional[str] = None
@@ -92,9 +92,11 @@ class ComicPage(metaclass=ABCMeta):
             self.downloadPage()
         # No, there is no way to find media. We give up
         if self.mediaURL is None:
-            raise ValueError(f"Unable to find media {self.URL}")
+            logging.error(f"Unable to find media in '{self.URL}'")
+            return
 
-        img = DownloadRawPage(self.mediaURL, here=self.URL, allow_redirects=True)
+
+        img = downloadRawPage(self.mediaURL, here=self.URL, allow_redirects=True)
         self.timestamp = img.timestamp
         self.info['timestamp'] = img.timestamp.strftime(TIMESTAMPFORMAT)
         self.data = img.data
@@ -105,7 +107,7 @@ class ComicPage(metaclass=ABCMeta):
 
     def getRaw(self, sanitizer: Optional[Callable[[bytes], bytes]] = None):
         """ Commodity function for development. Returns the page as-is (without parsing nor preprocessing)"""
-        result = DownloadRawPage(self.URL, sanitizer=sanitizer)
+        result = downloadRawPage(self.URL, sanitizer=sanitizer)
         return result
 
     def updateLinksFromDict(self, links: Dict[str, str]):
@@ -163,9 +165,10 @@ class ComicPage(metaclass=ABCMeta):
         return pathList
 
     def saveFiles(self, imgFolder: str, metadataFolder: str, dbStore: Optional[DBStorage] = None, storeJSON: bool = True
-                  ):
+                  ) -> bool:
         if self.data is None:
-            raise ValueError("saveFile: empty file")
+            logging.error(f"saveFile: empty file '{self.URL}'")
+            return False  # raise ValueError("saveFile: empty file")
 
         dataFullPath = path.join(imgFolder, *(self.dataPath()))
         makedirs(dataFullPath, mode=0o755, exist_ok=True)
@@ -194,6 +197,7 @@ class ComicPage(metaclass=ABCMeta):
                 commit = dbStore.module.commit
 
         self.updateDBmetadataRecord(dbStore=dbStore)
+        return True
 
     def exists(self, imgFolder: str, metadataFolder: str, dbStore: Optional[DBStorage] = None, storeJSON: bool = True
                ) -> bool:

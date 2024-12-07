@@ -6,14 +6,14 @@ from time import struct_time
 from typing import Callable, Dict, List, Optional
 
 import validators
+from CAPcore.Files import loadYAML, saveYAML
+from CAPcore.Misc import createPath, getUTC, UTC2local
+from CAPcore.Python import loadModule
 from requests import HTTPError
 
-from libs.Utils.Files import loadYAML, saveYAML
-from libs.Utils.Misc import createPath, getUTC, UTC2local
 from .ComicPage import ComicPage
 from .Config import globalConfig, parseDatatime, runnerConfig, RUNNERVALIDPOLLINTERVALS
 from .StoreManager import DBStorage
-from ..Utils.Python import LoadModule
 
 commit: Optional[Callable] = None
 
@@ -26,7 +26,7 @@ class Crawler:
         self.name = self.runnerCFG.name
         self.state: CrawlerState = CrawlerState(runnerName=self.name, storePath=self.globalCFG.stateD(),
                                                 dbstore=self.dataStore, storeJSON=self.globalCFG.storeJSON).load()
-        self.fullModuleName, self.module = LoadModule(moduleName=self.runnerCFG.module,
+        self.fullModuleName, self.module = loadModule(moduleName=self.runnerCFG.module,
                                                       classLocation="libs.Cosecha.Sites")
         self.obj: ComicPage = self.module.Page(URL=self.state.lastURL, **dict(self.runnerCFG.data['RUNNER']))
         self.key: str = self.obj.key
@@ -105,8 +105,8 @@ class Crawler:
                     break
             except HTTPError as exc:
                 logging.error(
-                        f"Crawler(crawl) '{self.name}': Problems downloading media {self.obj.URL}: {self.obj.mediaURL} "
-                        f"{exc}")
+                    f"Crawler(crawl) '{self.name}': Problems downloading media '{self.obj.URL}': '{self.obj.mediaURL}' "
+                    f"Exc: '{exc}'")
                 break
             except Exception as exc:
                 logging.error(f"Crawler(crawl) '{self.name}': problem:{type(exc)} {exc}")
@@ -133,8 +133,8 @@ class Crawler:
                 logging.debug(f"'{self.name}': already downloaded")
         except HTTPError as exc:
             logging.error(
-                    f"Crawler(poll) '{self.name}': Problems downloading media {self.obj.URL}: {self.obj.mediaURL} "
-                    f"{exc}")
+                f"Crawler(poll) '{self.name}': Problems downloading media {self.obj.URL}: {self.obj.mediaURL} "
+                f"{exc}")
         except Exception as exc:
             logging.error(f"Crawler(poll) '{self.name}': problem:{type(exc)} {exc}")
             logging.exception(exc, stack_info=True)
@@ -149,7 +149,7 @@ class Crawler:
         mode = self.runnerCFG.pollInterval
         if not ((mode is None) or (mode.lower() in RUNNERVALIDPOLLINTERVALS)):
             raise KeyError(
-                    f"Provided mode '{mode}'not valid. Valid modes are None or any of {RUNNERVALIDPOLLINTERVALS}")
+                f"Provided mode '{mode}'not valid. Valid modes are None or any of {RUNNERVALIDPOLLINTERVALS}")
 
         if mode is None:
             return True
@@ -209,8 +209,8 @@ class CrawlerState:
             raise ValueError("Storage of State files requested but no storePath be provided")
 
     def __str__(self):
-        result = "CrawlerState" + " ".join([f"{k}={getattr(self, k)} [{type(getattr(self, k))}]" for k in
-                                            (["runnerName"] + list(self.stateElements))])
+        result = "CrawlerState" + " ".join(
+            [f"{k}={getattr(self, k)} [{type(getattr(self, k))}]" for k in (["runnerName"] + list(self.stateElements))])
 
         return result
 

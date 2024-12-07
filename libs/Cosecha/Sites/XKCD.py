@@ -1,11 +1,12 @@
+import logging
 import re
 from typing import List, Optional
 
 import bs4
+from CAPcore.Web import downloadPage, mergeURL
 
 from libs.Cosecha.ComicPage import ComicPage
 from libs.Cosecha.Config import IDPATHDIVIDER
-from libs.Utils.Web import DownloadPage, MergeURL
 
 URLBASE = "https://xkcd.com/"
 KEY = "xkcd"
@@ -30,7 +31,7 @@ class Page(ComicPage):
         reqMetas = {'title', 'url'}
         self.info = dict()
 
-        pagBase = DownloadPage(self.URL)
+        pagBase = downloadPage(self.URL)
         metas = findInterestingMetas(pagBase.data)
 
         if reqMetas.difference(set(metas.keys())):
@@ -47,10 +48,13 @@ class Page(ComicPage):
         self.linkLast = links.get('last')
 
         infoImg = findComicImg(pagBase.data, title=metas['title'], here=self.URL)
+        self.timestamp = pagBase.timestamp
+
+        if infoImg is None:
+            return
         self.info['comment'] = infoImg['comment']
         self.info['titleStr'] = infoImg['titleStr']
         self.mediaURL = infoImg['urlImg']
-        self.timestamp = pagBase.timestamp
 
     def updateOtherInfo(self):
         # Will do if need arises
@@ -164,7 +168,7 @@ def findComicLinks(webContent: bs4.BeautifulSoup, here: Optional[str] = None, th
         elif dest in {'/'}:
             continue
 
-        destURL = MergeURL(here, dest)
+        destURL = mergeURL(here, dest)
 
         if destURL == here:
             continue
@@ -188,9 +192,12 @@ def findComicImg(webContent: bs4.BeautifulSoup, title: Optional[str], here: Opti
     result = dict()
 
     imgLink = webContent.find('img', {'alt': title})
+    if imgLink is None:
+        logging.error(f"findComicImg: unable to find img with title '{title}' in '{here}'. Skipping.")
+        return None  # raise ValueError(f"findComicImg: unable to find img with title '{title}' in '{here}'")
     result['comment'] = imgLink.attrs['title']
     dest = imgLink.attrs['src']
-    result['urlImg'] = MergeURL(here, dest)
+    result['urlImg'] = mergeURL(here, dest)
 
     pat = r'/(?P<titleStr>[^./]+)\.\w+$'
     match = re.search(pat, dest)
