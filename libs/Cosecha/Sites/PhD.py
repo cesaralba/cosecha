@@ -109,7 +109,9 @@ def findMetas(webContent: bs4.BeautifulSoup):
 
     imgMeta = webContent.head.find('meta', attrs={'property': "og:image"})
     if imgMeta:
-        result['urlImg'] = imgMeta['content']
+        #For some reason, it doesn't work well on some URLs (this page is far west HTML)
+        auxList = imgMeta['content'].split()
+        result['urlImg'] = auxList[0]
     metaTitle = webContent.head.find('meta', attrs={'name': "twitter:title"})
     if metaTitle:
         result['title'] = metaTitle['content']
