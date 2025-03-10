@@ -6,7 +6,7 @@ PyYAML==6.0.2
 ConfigArgParse==1.7
 
 validators==0.34.0
-markdownify==1.0.0
+markdownify==1.1.0
 Markdown==3.7
 
 pony==0.7.19
