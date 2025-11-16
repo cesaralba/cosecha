@@ -7,11 +7,12 @@ from os import makedirs, path
 from typing import Callable, Dict, List, Optional
 from urllib.parse import urlsplit
 
+import bs4
 import magic
 import validators
 from CAPcore.Files import extensionFromType, loadYAML, saveYAML, shaData, shaFile
 from CAPcore.Misc import getUTC, prepareBuilderPayloadObj
-from CAPcore.Web import downloadRawPage
+from CAPcore.Web import downloadRawPage,DownloadedPage
 
 from libs.Cosecha.Config import DAYSOFWEEK, TIMESTAMPFORMAT
 from libs.Cosecha.StoreManager import DBStorage
@@ -163,6 +164,22 @@ class ComicPage(metaclass=ABCMeta):
         pathList = [self.key, f"{year}"]
 
         return pathList
+
+    def sharedPathWithFullDate(self) -> List[str]:
+        """
+        Produces a path for files that takes into account the date (year, actually) of publication.
+        This prevents a lot of files storing in the same dir
+        IMPORTANT: Field DATEFORMAT must be defined in the class or an exception will raise
+        :return: a list with elements that will be added to the path to store elements (metadata & images for now)
+        """
+        year = self.datePub().year
+        month = self.datePub().month
+        day = self.datePub().day
+
+        pathList = [self.key, f"{year}",f"f{month}","f{day}"]
+
+        return pathList
+
 
     def saveFiles(self, imgFolder: str, metadataFolder: str, dbStore: Optional[DBStorage] = None, storeJSON: bool = True
                   ) -> bool:
@@ -319,3 +336,20 @@ class ComicPage(metaclass=ABCMeta):
         except dbStore.obj.RowNotFound as exc:
             newRecord = self.createDBmetadataRecord(dbStore=dbStore)
             return newRecord
+
+    def saveDebugFiles(self,downloadedData:DownloadedPage,errorMsgs:List[str],debugFolder: str):
+        pageDate:datetime=downloadedData.timestamp
+        timeStr=pageDate.strftime("%Y%m%d-%H%M%%S.%f")
+        fileNameHTML=f"{self.key}-{timeStr}.html"
+        msgNameHTML=f"{self.key}-{timeStr}.msg"
+
+        debugFullPath = path.join(debugFolder, *(self.dataPath()))
+        makedirs(debugFullPath, mode=0o755, exist_ok=True)
+        htmlFilename = path.join(debugFullPath, fileNameHTML)
+        msgFilename = path.join(debugFullPath, msgNameHTML)
+
+        with open(htmlFilename, "w") as bin_file:
+            bin_file.write(downloadedData.data.prettyfy())
+
+        outData = {'url':downloadedData.source, 'timestamp':downloadedData.timestamp, 'messages':errorMsgs}
+        saveYAML(outData,msgFilename)

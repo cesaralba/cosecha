@@ -200,6 +200,7 @@ class globalConfig:
     metadataDirectory: str = 'metadata'
     stateDirectory: str = 'state'
     databaseDirectory: str = 'db'
+    debugDirectory: str = 'debugFiles'
     runnersCFG: str = 'etc/runners.d/*.conf'
     dryRun: bool = False
     dontSendEmails: bool = False
@@ -327,6 +328,9 @@ class globalConfig:
 
     def databaseD(self) -> str:
         return path.join(self.saveDirectory, self.databaseDirectory)
+
+    def debugD(self) -> str:
+        return path.join(self.saveDirectory, self.debugDirectory)
 
     @classmethod
     def createStorePath(cls, field: str):
