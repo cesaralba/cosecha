@@ -287,11 +287,11 @@ class MailDelivery:
 
             for msg in self.cargo:
                 server.sendmail(self.mailConfig.sender, self.mailConfig.to, msg.as_string())
+            server.quit()
+
         except Exception as e:
             # Print any error messages to stdout
             logging.error(e)
-        finally:
-            server.quit()
 
     def __len__(self):
         return len(self.messages)
