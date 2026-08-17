@@ -9,6 +9,6 @@ validators==0.35.0
 markdownify==1.2.3
 Markdown==3.10.3
 
-pony==0.7.19
+pony==0.7.20
 
 git+https://github.com/cesaralba/CAPcore-python@202506
