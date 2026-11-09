@@ -7,7 +7,7 @@ ConfigArgParse==1.9.0
 
 validators==0.36.0
 markdownify==1.2.3
-Markdown==3.11.2
+Markdown==3.11.3
 
 pony==0.7.20
 
