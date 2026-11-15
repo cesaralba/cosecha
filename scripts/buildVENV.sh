@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -eu
+set -euo pipefail
 
 CONFIGFILE=${DEVSMCONFIGFILE:-/etc/sysconfig/Cosecha}
 [ -f ${CONFIGFILE} ] && source ${CONFIGFILE}
@@ -9,6 +9,9 @@ if [ ${CS_DEBUGSCRIPTS:-0} = 1 ]
 then
   set -vx
 fi
+
+PYTHONRUNNER=${PYTHON:-python3}
+PIPOPTIONS=${PIPOPT:-}
 
 ME="$(readlink -e $0)"
 HEREDIR=$(cd "$(dirname ${ME})" && pwd )
@@ -58,7 +61,7 @@ then
   :
 else
   echo "Creando VENV en ${VENVHOME}"
-  python -mvenv --clear ${VENVHOME} || soLong "Problemas creand VENV en ${VENVHOME}"
+  ${PYTHONRUNNER} -mvenv --clear ${VENVHOME} || soLong "Problemas creand VENV en ${VENVHOME}"
 fi
 
 source ${ACTIVATIONSCR}  || soLong "Problemas cargando ${ACTIVATIONSCR}"
@@ -78,5 +81,5 @@ done
 
 if [ -n "${PARAMREQS}" ]
 then
-  pip install -q ${PARAMREQS}
+  pip install ${PIPOPTIONS} -q ${PARAMREQS}
 fi
