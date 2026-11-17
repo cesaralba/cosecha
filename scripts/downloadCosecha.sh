@@ -41,4 +41,4 @@ else
   soLong "ORROR: Incapaz de encontrar activador de virtualenv. Pruebe a ejecutar ${HEREDIR}/buildVENV.sh . Adios."
 fi
 
-python ${WRKDIR}/bin/DescargaCosecha.py $*
+${VENV}/bin/python ${WRKDIR}/bin/DescargaCosecha.py $*

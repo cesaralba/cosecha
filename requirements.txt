@@ -1,14 +1,14 @@
-requests>=2.32.4
+requests>=2.34.2
 python-magic>=0.4.27
-python-dateutil>=2.9.0.post0
-PyYAML>=6.0.2
+python-dateutil>=4.0.0
+PyYAML>=6.0.3
 
-ConfigArgParse==1.7.1
+ConfigArgParse==1.9.0
 
-validators==0.35.0
-markdownify==1.2.0
-Markdown==3.10
+validators==0.36.0
+markdownify==1.2.3
+Markdown==3.11.3
 
-pony==0.7.19
+pony==0.7.20
 
 git+https://github.com/cesaralba/CAPcore-python@202506
