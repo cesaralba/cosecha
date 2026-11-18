@@ -65,7 +65,8 @@ else
 fi
 
 source ${ACTIVATIONSCR}  || soLong "Problemas cargando ${ACTIVATIONSCR}"
-python -m pip install -q -U pip wheel
+
+${VENVHOME}/bin/python -m pip install -q -U pip wheel
 
 
 PARAMREQS=""
@@ -81,5 +82,5 @@ done
 
 if [ -n "${PARAMREQS}" ]
 then
-  pip install ${PIPOPTIONS} -q ${PARAMREQS}
+  ${VENVHOME}/bin/python -m pip install ${PIPOPTIONS} -q ${PARAMREQS}
 fi
