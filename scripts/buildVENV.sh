@@ -65,6 +65,7 @@ else
 fi
 
 source ${ACTIVATIONSCR}  || soLong "Problemas cargando ${ACTIVATIONSCR}"
+
 ${VENVHOME}/bin/python -m pip install -q -U pip wheel
 
 
