@@ -3,10 +3,10 @@ python-magic>=0.4.27
 python-dateutil>=4.0.0
 PyYAML>=6.0.3
 
-ConfigArgParse==1.9.0
+ConfigArgParse==1.10.2
 
 validators==0.36.0
-markdownify==1.2.3
+markdownify==1.2.4
 Markdown==3.11.3
 
 pony==0.7.20
